@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nafyad School – Student Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!--
+  ══════════════════════════════════════════
+   SUPABASE TABLES — run in SQL editor
+  ══════════════════════════════════════════
+
+  create table if not exists notes (
+    id bigint generated always as identity primary key,
+    title text not null, subject text, grade text default 'All',
+    content text, file_link text, icon text default '📝',
+    color text default '#e8f1ff', created_at timestamptz default now()
+  );
+  alter table notes disable row level security;
+
+  create table if not exists quizzes (
+    id bigint generated always as identity primary key,
+    title text not null, subject text, grade text default 'All',
+    questions jsonb, time_limit int default 0,
+    created_at timestamptz default now()
+  );
+  alter table quizzes disable row level security;
+
+  create table if not exists quiz_results (
+    id bigint generated always as identity primary key,
+    student_id text references students(student_id) on delete cascade,
+    quiz_id bigint references quizzes(id) on delete cascade,
+    score int, total int, answers jsonb,
+    completed_at timestamptz default now(),
+    unique(student_id, quiz_id)
+  );
+  alter table quiz_results disable row level security;
+  -->
+
+  <style>
+/* ══════════════ TOKENS ══════════════ */
+:root{
+  --navy:#001f3f;--navy-light:#002d5a;--blue:#0077ff;--blue-light:#3395ff;
+  --cyan:#00e5ff;--bg:#f0f4fa;--surface:#ffffff;--border:#dde3ee;
+  --text:#1a2540;--muted:#6b7a99;--success:#00c48c;--warning:#ffb800;
+  --danger:#ff4d6d;--font:'Sora',sans-serif;--mono:'DM Mono',monospace;
+  --radius:12px;--shadow:0 4px 24px rgba(0,31,63,.10);--shadow-lg:0 12px 48px rgba(0,31,63,.16);
+  --sb-w:252px;
+}
+[data-theme="dark"]{
+  --bg:#0d1117;--surface:#161b22;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;
+  --shadow:0 4px 24px rgba(0,0,0,.4);--shadow-lg:0 12px 48px rgba(0,0,0,.6);
+}
+
+/* ══════════════ CUSTOM SCROLLBAR ══════════════ */
+*{scrollbar-width:thin;scrollbar-color:rgba(107,122,153,.35) transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(107,122,153,.35);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:rgba(107,122,153,.6)}
+[data-theme="dark"] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12)}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
+
+/* ══════════════ DARK MODE PATCHES ══════════════ */
+[data-theme="dark"] .data-table thead tr{background:#1c2333}
+[data-theme="dark"] .data-table tr:hover td{background:#1c2333}
+[data-theme="dark"] .q-card-header{background:#1c2333}
+[data-theme="dark"] .q-item{background:#1c2333}
+[data-theme="dark"] .mfg input,[data-theme="dark"] .mfg select,[data-theme="dark"] .mfg textarea{background:#0d1117;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .att-note-input{background:#0d1117;color:var(--text)}
+[data-theme="dark"] .q-filter-bar select{background:var(--surface);color:var(--text)}
+[data-theme="dark"] .grade-bar{background:#1c2333}
+[data-theme="dark"] .login-box{background:rgba(22,27,34,.75)}
+[data-theme="dark"] .form-group input{background:rgba(255,255,255,.05)}
+[data-theme="dark"] .quiz-opt-label{background:#1c2333;border-color:#30363d;color:var(--text)}
+[data-theme="dark"] .quiz-opt-label:hover{border-color:var(--blue);background:#1e2d45}
+[data-theme="dark"] .quiz-result-item{background:#1c2333;border-color:#30363d}
+[data-theme="dark"] .note-card{border-color:#30363d}
+[data-theme="dark"] .att-student-row{background:var(--surface);border-color:#30363d}
+[data-theme="dark"] .att-btn{background:#0d1117;border-color:#30363d}
+[data-theme="dark"] .sch-day-card{border-color:#30363d}
+[data-theme="dark"] .sch-slot{background:#1c2333;border-color:#30363d}
+[data-theme="dark"] .sch-add-form{background:#0d1117;border-color:#30363d}
+[data-theme="dark"] .sch-add-form input,[data-theme="dark"] .sch-add-form select{background:#161b22;color:var(--text);border-color:#30363d}
+[data-theme="dark"] .remove-item-row{border-color:#30363d}
+[data-theme="dark"] .remove-item-row:hover{background:#1c2333}
+[data-theme="dark"] input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.8);cursor:pointer}
+[data-theme="dark"] select option{background:#161b22;color:var(--text)}
+
+/* badge dark */
+[data-theme="dark"] .badge-green{background:rgba(0,196,140,.15);color:#3dd6a3}
+[data-theme="dark"] .badge-yellow{background:rgba(255,184,0,.12);color:#ffd055}
+[data-theme="dark"] .badge-red{background:rgba(255,77,109,.15);color:#ff8fa3}
+[data-theme="dark"] .badge-blue{background:rgba(0,119,255,.15);color:#60a5fa}
+[data-theme="dark"] .badge-purple{background:rgba(124,58,237,.15);color:#a78bfa}
+
+/* ══════════════ RESET ══════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+.hidden{display:none!important}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:600;letter-spacing:.03em}
+.badge-green{background:#e6f9f4;color:var(--success)}
+.badge-yellow{background:#fff8e1;color:#b38000}
+.badge-red{background:#ffe8ec;color:var(--danger)}
+.badge-blue{background:#e8f1ff;color:var(--blue)}
+.badge-purple{background:#f3e8ff;color:#7c3aed}
+
+/* ══════════════ LOGIN ══════════════ */
+#login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);position:relative;overflow:hidden}
+#login-page::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 20% 30%,rgba(0,119,255,.25) 0%,transparent 55%),radial-gradient(circle at 80% 70%,rgba(0,229,255,.15) 0%,transparent 50%);pointer-events:none}
+#login-page::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:48px 48px;pointer-events:none}
+.login-box{position:relative;z-index:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(20px);border-radius:20px;padding:2.5rem 2.25rem;width:100%;max-width:430px;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.login-logo{text-align:center;margin-bottom:1.75rem}
+.login-logo .logo-icon{width:58px;height:58px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:.65rem;box-shadow:0 8px 32px rgba(0,119,255,.4)}
+.login-logo h1{color:#fff;font-size:1.4rem;font-weight:700}
+.login-logo p{color:rgba(255,255,255,.5);font-size:.82rem;margin-top:.2rem}
+.login-tabs{display:flex;gap:.4rem;background:rgba(0,0,0,.25);border-radius:10px;padding:4px;margin-bottom:1.5rem}
+.login-tab{flex:1;padding:.5rem;border:none;border-radius:8px;font-family:var(--font);font-size:.8rem;font-weight:600;cursor:pointer;transition:all .25s;color:rgba(255,255,255,.5);background:transparent}
+.login-tab.active{background:var(--blue);color:#fff;box-shadow:0 4px 12px rgba(0,119,255,.4)}
+.form-group{margin-bottom:1.1rem}
+.form-group label{display:block;font-size:.78rem;font-weight:600;color:rgba(255,255,255,.55);margin-bottom:.4rem;letter-spacing:.04em;text-transform:uppercase}
+.form-group input{width:100%;padding:.75rem 1rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:10px;color:#fff;font-family:var(--font);font-size:.92rem;transition:border-color .2s,box-shadow .2s;outline:none}
+.form-group input::placeholder{color:rgba(255,255,255,.3)}
+.form-group input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,119,255,.2)}
+.btn-login{width:100%;padding:.85rem;background:linear-gradient(135deg,var(--blue),#0060cc);border:none;border-radius:10px;color:#fff;font-family:var(--font);font-size:.95rem;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 6px 20px rgba(0,119,255,.4);margin-top:.4rem}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,119,255,.5)}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.login-error{display:none;background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);color:#ff8fa3;border-radius:8px;padding:.55rem .9rem;font-size:.85rem;margin-top:.9rem;text-align:center}
+.login-hint{text-align:center;color:rgba(255,255,255,.3);font-size:.75rem;margin-top:1.25rem}
+.login-hint strong{color:rgba(255,255,255,.55)}
+
+/* ══════════════ APP SHELL ══════════════ */
+#app{display:none;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;top:0;left:0;width:var(--sb-w);height:100vh;background:var(--navy);display:flex;flex-direction:column;z-index:100;transition:transform .3s ease}
+.sidebar-header{padding:1.1rem 1.25rem .8rem;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.s-logo{display:flex;align-items:center;gap:.6rem}
+.s-logo .icon{width:34px;height:34px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.s-logo h2{color:#fff;font-size:.98rem;font-weight:700;line-height:1.2}
+.s-logo p{color:rgba(255,255,255,.38);font-size:.68rem}
+
+/* COMPACT user info — keeps all elements, reduces space */
+.sidebar-user{margin:.55rem .9rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.user-avatar{width:33px;height:33px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.8rem;flex-shrink:0;letter-spacing:.02em}
+.user-info{min-width:0;flex:1}
+.user-info .name{color:#fff;font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.user-info .uid{color:rgba(255,255,255,.38);font-size:.68rem;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.user-info .role-badge-wrap{display:flex;align-items:center;gap:.35rem;margin-top:.2rem;flex-wrap:wrap}
+.user-info .role-badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:.62rem;font-weight:700;letter-spacing:.04em;line-height:1.6}
+.role-student{background:rgba(0,119,255,.25);color:#7bbfff}
+.role-teacher{background:rgba(0,196,140,.2);color:#5dddb8}
+.role-admin{background:rgba(255,77,109,.2);color:#ff8fa3}
+.change-pass-btn{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.55);border-radius:6px;padding:2px 7px;font-size:.6rem;font-family:var(--font);cursor:pointer;transition:all .2s;white-space:nowrap}
+.change-pass-btn:hover{background:rgba(255,255,255,.18);color:#fff}
+
+.sidebar-nav{flex:1;padding:.35rem .75rem;overflow-y:auto;min-height:0}
+.nav-section-title{font-size:.63rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.28);padding:.5rem .5rem .3rem}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.62rem .8rem;border-radius:9px;color:rgba(255,255,255,.52);font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;font-family:var(--font)}
+.nav-item .nav-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:rgba(0,119,255,.22);color:var(--blue-light);font-weight:600}
+.sidebar-footer{padding:.75rem 1.1rem;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.btn-logout{width:100%;padding:.58rem;background:rgba(255,77,109,.11);border:1px solid rgba(255,77,109,.18);border-radius:8px;color:#ff8fa3;font-family:var(--font);font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-logout:hover{background:rgba(255,77,109,.22)}
+
+/* ── MAIN ── */
+.main-content{margin-left:var(--sb-w);min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.85rem 1.75rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;transition:background .3s,border-color .3s}
+.topbar-left{display:flex;align-items:center;gap:.65rem}
+.topbar-title{font-size:1.08rem;font-weight:700;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:.85rem}
+.topbar-date{font-size:.78rem;color:var(--muted)}
+.dark-toggle-wrap{display:flex;align-items:center;gap:.45rem;cursor:pointer}
+.dark-toggle-wrap span{font-size:1rem;line-height:1}
+.dark-toggle{width:40px;height:22px;background:var(--border);border-radius:999px;border:none;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0}
+.dark-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:transform .3s}
+[data-theme="dark"] .dark-toggle{background:var(--blue)}
+[data-theme="dark"] .dark-toggle::after{transform:translateX(18px);background:#fff}
+.hamburger{display:none;background:none;border:none;cursor:pointer;font-size:1.3rem;color:var(--text);padding:.25rem}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99}
+
+.page-content{padding:1.75rem;flex:1}
+.section-page{display:none;animation:fadeIn .3s ease}
+.section-page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══════════════ SHARED COMPONENTS ══════════════ */
+.welcome-banner{background:linear-gradient(135deg,var(--navy),var(--navy-light));border-radius:var(--radius);padding:1.75rem 2rem;color:#fff;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.welcome-banner::after{content:'🎓';position:absolute;right:1.75rem;top:50%;transform:translateY(-50%);font-size:4.5rem;opacity:.12}
+.welcome-banner h2{font-size:1.45rem;font-weight:700;margin-bottom:.3rem}
+.welcome-banner p{color:rgba(255,255,255,.58);font-size:.9rem}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;display:flex;align-items:center;gap:.85rem;box-shadow:var(--shadow);transition:transform .2s,background .3s,border-color .3s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0}
+.stat-icon.blue{background:#e8f1ff}
+.stat-icon.green{background:#e6f9f4}
+.stat-icon.yellow{background:#fff8e1}
+.stat-icon.purple{background:#f3e8ff}
+.stat-icon.orange{background:#fff3e8}
+[data-theme="dark"] .stat-icon.blue{background:rgba(0,119,255,.14)}
+[data-theme="dark"] .stat-icon.green{background:rgba(0,196,140,.11)}
+[data-theme="dark"] .stat-icon.yellow{background:rgba(255,184,0,.11)}
+[data-theme="dark"] .stat-icon.purple{background:rgba(124,58,237,.11)}
+[data-theme="dark"] .stat-icon.orange{background:rgba(255,119,0,.11)}
+.stat-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem}
+.stat-value{font-size:1.5rem;font-weight:700;color:var(--text)}
+
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;transition:background .3s,border-color .3s}
+.card-header{padding:.95rem 1.35rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h3{font-size:.95rem;font-weight:700;color:var(--text)}
+.card-body{padding:1.1rem 1.35rem}
+
+.data-table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:background .3s}
+.data-table thead tr{background:#f6f8fc}
+[data-theme="dark"] .data-table thead tr{background:#1c2333}
+.data-table th{padding:.78rem .95rem;text-align:left;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.data-table td{padding:.82rem .95rem;font-size:.88rem;border-bottom:1px solid var(--border);color:var(--text)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:#f9fbff}
+[data-theme="dark"] .data-table tr:hover td{background:#1c2333}
+
+/* table wrapper for mobile scroll */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.grade-bar-wrap{display:flex;align-items:center;gap:.65rem}
+.grade-bar{flex:1;height:5px;background:#eef1f8;border-radius:999px;overflow:hidden;min-width:40px}
+[data-theme="dark"] .grade-bar{background:#1c2333}
+.grade-bar-fill{height:100%;border-radius:999px;transition:width .6s ease}
+
+.btn-primary{padding:.6rem 1.25rem;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--font);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary:hover{background:#0060cc}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger{padding:.4rem .9rem;border:none;border-radius:7px;background:rgba(255,77,109,.12);color:var(--danger);font-size:.78rem;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .2s;flex-shrink:0}
+.btn-danger:hover{background:var(--danger);color:#fff}
+
+/* ══════════════ ATTENDANCE ══════════════ */
+.att-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:1.5rem}
+.att-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;text-align:center;box-shadow:var(--shadow);transition:background .3s}
+.att-number{font-size:1.9rem;font-weight:700;margin-bottom:.2rem}
+.att-label{font-size:.74rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.teacher-att-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.35rem;margin-bottom:1.35rem;box-shadow:var(--shadow);display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;transition:background .3s}
+.teacher-att-bar label{font-size:.82rem;font-weight:600;color:var(--muted)}
+.teacher-att-bar input[type=date]{padding:.48rem .85rem;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:.87rem;color:var(--text);outline:none;transition:border-color .2s;background:var(--surface)}
+.teacher-att-bar input[type=date]:focus{border-color:var(--blue)}
+.att-student-grid{display:flex;flex-direction:column;gap:.5rem}
+.att-student-row{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.8rem 1.1rem;display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,.04);transition:background .3s}
+.att-student-row .stu-info{flex:1;min-width:120px}
+.att-student-row .stu-name{font-weight:600;font-size:.88rem;color:var(--text)}
+.att-student-row .stu-id{font-size:.7rem;color:var(--muted);font-family:var(--mono)}
+.att-status-btns{display:flex;gap:.35rem;flex-wrap:wrap}
+.att-btn{padding:.3rem .7rem;border-radius:6px;font-family:var(--font);font-size:.74rem;font-weight:600;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;transition:all .2s}
+.att-btn:hover{border-color:var(--blue);color:var(--blue)}
+.att-btn.selected-present{background:#e6f9f4;border-color:var(--success);color:var(--success)}
+.att-btn.selected-absent{background:#ffe8ec;border-color:var(--danger);color:var(--danger)}
+.att-btn.selected-late{background:#fff8e1;border-color:var(--warning);color:#b38000}
+.att-btn.selected-excused{background:#e8f1ff;border-color:var(--blue);color:var(--blue)}
+.att-note-input{padding:.28rem .65rem;border:1px solid var(--border);border-radius:6px;font-family:var(--font);font-size:.74rem;width:120px;outline:none;color:var(--text);background:var(--surface);transition:border-color .2s}
+.att-note-input:focus{border-color:var(--blue)}
+.att-save-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:.85rem 1.75rem;display:flex;align-items:center;justify-content:space-between;z-index:10;margin:-1.75rem -1.75rem 0;transition:background .3s}
+.att-save-count{font-size:.86rem;color:var(--muted)}
+.att-save-count strong{color:var(--text)}
+
+/* ══════════════ MY SCHEDULE ══════════════ */
+.sch-header-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.35rem;flex-wrap:wrap;gap:.75rem}
+.sch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.sch-day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:background .3s,border-color .3s}
+.sch-day-header{padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between}
+.sch-day-name{font-weight:700;font-size:.92rem;color:var(--text)}
+.sch-day-count{font-size:.72rem;color:var(--muted)}
+.sch-day-body{padding:.5rem .75rem .75rem}
+.sch-slot{display:flex;align-items:flex-start;gap:.6rem;padding:.55rem .7rem;border-radius:8px;background:#f8faff;border:1px solid var(--border);margin-bottom:.45rem;position:relative;transition:background .3s}
+.sch-slot-color{width:3px;height:100%;min-height:32px;border-radius:999px;flex-shrink:0;align-self:stretch}
+.sch-slot-info{flex:1;min-width:0}
+.sch-slot-subject{font-size:.85rem;font-weight:600;color:var(--text);line-height:1.3}
+.sch-slot-time{font-size:.72rem;color:var(--muted);font-family:var(--mono)}
+.sch-slot-note{font-size:.75rem;color:var(--muted);margin-top:.15rem;line-height:1.4}
+.sch-slot-del{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85rem;padding:.15rem .3rem;border-radius:5px;transition:all .2s;flex-shrink:0}
+.sch-slot-del:hover{background:#ffe8ec;color:var(--danger)}
+.sch-add-btn{width:100%;padding:.42rem;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--muted);font-family:var(--font);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;margin-top:.25rem}
+.sch-add-btn:hover{border-color:var(--blue);color:var(--blue)}
+.sch-add-form{background:#f0f6ff;border:1px solid #c0d8ff;border-radius:9px;padding:.75rem;margin-bottom:.5rem;display:none;flex-direction:column;gap:.45rem}
+.sch-add-form.open{display:flex}
+.sch-add-form input,.sch-add-form select{padding:.4rem .65rem;border:1px solid var(--border);border-radius:7px;font-family:var(--font);font-size:.8rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s}
+.sch-add-form input:focus,.sch-add-form select:focus{border-color:var(--blue)}
+.sch-add-form-row{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.sch-add-actions{display:flex;gap:.4rem;justify-content:flex-end}
+.sch-btn-small{padding:.32rem .85rem;border-radius:6px;font-family:var(--font);font-size:.76rem;font-weight:600;cursor:pointer;transition:all .2s;border:none}
+.sch-btn-add{background:var(--blue);color:#fff}
+.sch-btn-add:hover{background:#0060cc}
+.sch-btn-cancel{background:var(--border);color:var(--muted)}
+.sch-btn-cancel:hover{background:var(--muted);color:#fff}
+[data-theme="dark"] .sch-slot{background:#1c2333}
+[data-theme="dark"] .sch-add-form{background:rgba(0,119,255,.06);border-color:rgba(0,119,255,.25)}
+[data-theme="dark"] .sch-add-form input,[data-theme="dark"] .sch-add-form select{background:#0d1117;border-color:#30363d}
+
+/* ══════════════ NOTES ══════════════ */
+.notes-filter-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.35rem;flex-wrap:wrap;gap:.65rem}
+.notes-filters{display:flex;gap:.55rem;flex-wrap:wrap}
+.filter-select{padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-family:var(--font);font-size:.84rem;color:var(--text);outline:none;transition:border-color .2s,background .3s;cursor:pointer}
+.filter-select:focus{border-color:var(--blue)}
+.notes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem}
+.note-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.35rem;box-shadow:var(--shadow);transition:transform .2s,background .3s,border-color .2s;cursor:pointer}
+.note-card:hover{transform:translateY(-2px);border-color:var(--blue)}
+.note-card-top{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem}
+.note-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.note-card h3{font-size:.92rem;font-weight:700;color:var(--text);margin-bottom:.2rem;line-height:1.3}
+.note-card .note-meta{font-size:.72rem;color:var(--muted)}
+.note-content-preview{font-size:.83rem;color:var(--muted);line-height:1.6;margin-bottom:.85rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.note-footer{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.note-date{font-size:.7rem;color:var(--muted);margin-left:auto;font-family:var(--mono)}
+
+/* ══════════════ NOTES MODAL — FULLSCREEN ══════════════ */
+#modal-view-note.fullscreen-mode{padding:0}
+#modal-view-note.fullscreen-mode .modal-box{max-width:100%;width:100%;max-height:100vh;height:100vh;border-radius:0;display:flex;flex-direction:column}
+#modal-view-note.fullscreen-mode .note-full-content{flex:1;max-height:none}
+.note-full-content{font-size:.93rem;color:var(--text);line-height:1.85;white-space:pre-wrap;margin-bottom:1.1rem;max-height:52vh;overflow-y:auto;padding-right:.35rem}
+.note-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:1.1rem}
+.note-modal-header h3{font-size:1.15rem;font-weight:700;color:var(--text);flex:1}
+.btn-fs{padding:.4rem .85rem;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--muted);font-family:var(--font);font-size:.76rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.btn-fs:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ══════════════ BOOKS ══════════════ */
+.books-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1rem}
+.book-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;transition:transform .2s,background .3s}
+.book-card:hover{transform:translateY(-2px)}
+.book-cover{height:120px;display:flex;align-items:center;justify-content:center;font-size:2.75rem}
+.book-body{padding:.9rem}
+.book-body h4{font-size:.9rem;font-weight:700;margin-bottom:.25rem;color:var(--text)}
+.book-body .book-sub{font-size:.76rem;color:var(--muted);margin-bottom:.75rem}
+
+/* ══════════════ PAST QUESTIONS ══════════════ */
+.q-filter-bar{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1.35rem}
+.q-cards{display:flex;flex-direction:column;gap:.85rem}
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:background .3s}
+.q-card-header{padding:.9rem 1.35rem;display:flex;align-items:center;justify-content:space-between;background:#f6f8fc;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .3s}
+.q-card-header h4{font-size:.9rem;font-weight:700;color:var(--text)}
+.q-card-body{padding:1.35rem;display:none}
+.q-card-body.open{display:block}
+.q-item{padding:.82rem;border-radius:8px;background:#f9fbff;border:1px solid var(--border);margin-bottom:.65rem;font-size:.87rem;line-height:1.6;color:var(--text);transition:background .3s}
+.q-item .q-num{font-family:var(--mono);font-weight:600;color:var(--blue);margin-right:.45rem}
+
+/* ══════════════ ANNOUNCEMENTS ══════════════ */
+.ann-list{display:flex;flex-direction:column;gap:.85rem}
+.ann-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.35rem;box-shadow:var(--shadow);display:flex;gap:.85rem;transition:background .3s}
+.ann-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:.4rem}
+.ann-title{font-weight:700;margin-bottom:.3rem;color:var(--text)}
+.ann-body{font-size:.87rem;color:var(--muted);line-height:1.6}
+.ann-date{font-size:.74rem;color:var(--muted);margin-top:.45rem;font-family:var(--mono)}
+
+/* ══════════════ QUIZ ══════════════ */
+.quiz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem}
+.quiz-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.35rem;box-shadow:var(--shadow);transition:transform .2s,background .3s}
+.quiz-card:hover{transform:translateY(-2px)}
+.quiz-card-top{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem}
+.quiz-icon{width:40px;height:40px;border-radius:11px;background:#e8f1ff;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+[data-theme="dark"] .quiz-icon{background:rgba(0,119,255,.14)}
+.quiz-card h3{font-size:.92rem;font-weight:700;color:var(--text);margin-bottom:.18rem}
+.quiz-card .quiz-sub{font-size:.72rem;color:var(--muted)}
+.quiz-badge-row{display:flex;gap:.45rem;flex-wrap:wrap;margin-bottom:.85rem}
+.quiz-take-wrap{max-width:700px;margin:0 auto}
+.quiz-header-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.35rem;margin-bottom:1.35rem;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);transition:background .3s;flex-wrap:wrap;gap:.5rem}
+.quiz-progress-text{font-size:.84rem;color:var(--muted)}
+.quiz-timer{font-family:var(--mono);font-size:.95rem;font-weight:700;color:var(--danger);padding:.28rem .7rem;background:#ffe8ec;border-radius:7px}
+.quiz-q-num{font-size:.74rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.55rem;font-family:var(--mono)}
+.quiz-q-text{font-size:1rem;font-weight:600;color:var(--text);line-height:1.5;margin-bottom:1.1rem}
+.quiz-opts{display:flex;flex-direction:column;gap:.55rem;margin-bottom:1.35rem}
+.quiz-opt{display:none}
+.quiz-opt-label{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.1rem;border-radius:9px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;transition:all .2s;font-size:.92rem;color:var(--text)}
+.quiz-opt-label:hover{border-color:var(--blue);background:#f0f6ff}
+[data-theme="dark"] .quiz-opt-label:hover{background:rgba(0,119,255,.08)}
+.quiz-opt:checked+.quiz-opt-label{border-color:var(--blue);background:#e8f1ff;color:var(--blue);font-weight:600}
+[data-theme="dark"] .quiz-opt:checked+.quiz-opt-label{background:rgba(0,119,255,.12);color:var(--blue-light)}
+.quiz-opt-letter{width:26px;height:26px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:.74rem;font-weight:700;flex-shrink:0;transition:all .2s;color:var(--muted)}
+.quiz-opt:checked+.quiz-opt-label .quiz-opt-letter{background:var(--blue);color:#fff}
+.quiz-nav{display:flex;align-items:center;gap:.65rem;margin-top:.85rem;flex-wrap:wrap}
+.quiz-dot-row{display:flex;gap:.35rem;flex-wrap:wrap}
+.quiz-dot{width:9px;height:9px;border-radius:50%;background:var(--border);transition:background .2s}
+.quiz-dot.answered{background:var(--blue)}
+.quiz-dot.current{background:var(--cyan);box-shadow:0 0 0 2px rgba(0,229,255,.3)}
+.quiz-result-banner{background:linear-gradient(135deg,var(--navy),var(--navy-light));border-radius:var(--radius);padding:2.25rem;text-align:center;color:#fff;margin-bottom:1.35rem}
+.quiz-score-ring{width:90px;height:90px;border-radius:50%;border:5px solid rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto .85rem;font-size:1.65rem;font-weight:700}
+.quiz-result-list{display:flex;flex-direction:column;gap:.65rem}
+.quiz-result-item{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.9rem 1.1rem;transition:background .3s}
+.quiz-result-item .q-text{font-size:.87rem;font-weight:600;color:var(--text);margin-bottom:.45rem}
+.quiz-result-item .q-answer{font-size:.78rem;color:var(--muted)}
+.quiz-result-item.correct{border-left:3px solid var(--success)}
+.quiz-result-item.wrong{border-left:3px solid var(--danger)}
+
+/* ══════════════ QUIZ BUILDER ══════════════ */
+.quiz-builder-q{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:.9rem;margin-bottom:.9rem;transition:background .3s}
+[data-theme="dark"] .quiz-builder-q{background:#0d1117}
+.quiz-builder-q .qb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem}
+.quiz-builder-q .qb-num{font-size:.78rem;font-weight:700;color:var(--blue)}
+.quiz-builder-q .qb-del{background:none;border:none;cursor:pointer;color:var(--danger);font-size:.78rem;padding:.2rem .45rem;border-radius:5px;font-family:var(--font)}
+.quiz-builder-q .qb-del:hover{background:#ffe8ec}
+.qb-opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin:.45rem 0}
+.qb-opt-row{display:flex;align-items:center;gap:.35rem}
+.qb-opt-letter{font-size:.72rem;font-weight:700;color:var(--muted);width:14px;flex-shrink:0}
+.qb-opt-input{flex:1;padding:.36rem .55rem;border:1px solid var(--border);border-radius:6px;font-family:var(--font);font-size:.78rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s,background .3s}
+[data-theme="dark"] .qb-opt-input{background:#161b22}
+.qb-opt-input:focus{border-color:var(--blue)}
+.qb-correct-label{font-size:.76rem;font-weight:600;color:var(--muted);margin-top:.45rem;display:block}
+.btn-add-q{width:100%;padding:.55rem;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--muted);font-family:var(--font);font-size:.84rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:.65rem}
+.btn-add-q:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ══════════════ ADMIN PANEL ══════════════ */
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.admin-action-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.35rem;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;text-align:center}
+.admin-action-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--blue)}
+.admin-action-card.danger-card:hover{border-color:var(--danger)}
+.admin-action-card .aa-icon{font-size:2.2rem;margin-bottom:.65rem}
+.admin-action-card h3{font-size:.92rem;font-weight:700;margin-bottom:.3rem;color:var(--text)}
+.admin-action-card p{font-size:.8rem;color:var(--muted)}
+
+/* Remove items list inside modal */
+.remove-item-row{display:flex;align-items:center;justify-content:space-between;padding:.7rem .95rem;border-bottom:1px solid var(--border);transition:background .2s;gap:.75rem}
+.remove-item-row:last-child{border-bottom:none}
+.remove-item-row:hover{background:#f9fbff}
+.remove-item-info{flex:1;min-width:0}
+.remove-item-name{font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.remove-item-sub{font-size:.74rem;color:var(--muted)}
+.remove-items-wrap{border:1px solid var(--border);border-radius:9px;overflow:hidden;max-height:340px;overflow-y:auto}
+
+/* student list */
+.admin-stu-section{margin-top:1.5rem;display:none}
+
+/* ══════════════ MODALS ══════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.52);display:none;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px);padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border-radius:15px;padding:1.75rem;width:100%;max-width:500px;box-shadow:0 24px 80px rgba(0,0,0,.3);animation:fadeUp .3s ease;max-height:88vh;overflow-y:auto;transition:background .3s}
+.modal-box.wide{max-width:640px}
+.modal-box h3{font-size:1.12rem;font-weight:700;margin-bottom:1.35rem;color:var(--text)}
+.mfg{margin-bottom:.95rem}
+.mfg label{display:block;font-size:.76rem;font-weight:600;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.04em}
+.mfg input,.mfg select,.mfg textarea{width:100%;padding:.65rem .95rem;border:1px solid var(--border);border-radius:8px;font-family:var(--font);font-size:.88rem;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s,background .3s}
+.mfg input:focus,.mfg select:focus,.mfg textarea:focus{border-color:var(--blue)}
+.mfg textarea{resize:vertical;min-height:75px}
+.modal-actions{display:flex;gap:.65rem;justify-content:flex-end;margin-top:1.35rem;flex-wrap:wrap}
+.btn-cancel{padding:.58rem 1.25rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:var(--font);font-size:.86rem;cursor:pointer;color:var(--muted);transition:all .2s}
+.btn-cancel:hover{border-color:var(--blue);color:var(--blue)}
+.btn-save{padding:.58rem 1.45rem;border:none;border-radius:8px;background:var(--blue);color:#fff;font-family:var(--font);font-size:.86rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-save:hover{background:#0060cc}
+
+/* ══════════════ TOAST / LOADING ══════════════ */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--navy);color:#fff;padding:.75rem 1.35rem;border-radius:10px;font-size:.86rem;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.3);z-index:9999;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none;max-width:calc(100vw - 2rem)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{background:var(--danger)}
+.toast.success{background:var(--success)}
+.loading-overlay{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+.loading-overlay.hidden{opacity:0;pointer-events:none}
+.loading-spinner{width:44px;height:44px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:.85rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{color:rgba(255,255,255,.65);font-size:.9rem}
+
+/* ══════════════ RESPONSIVE ══════════════ */
+@media(max-width:1024px){
+  .dash-grid{grid-template-columns:1fr}
+}
+@media(max-width:820px){
+  :root{--sb-w:240px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .admin-grid{grid-template-columns:repeat(2,1fr)}
+  .quiz-grid{grid-template-columns:1fr}
+  .notes-grid{grid-template-columns:1fr}
+  .sch-grid{grid-template-columns:repeat(2,1fr)}
+  .books-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.open{display:block}
+  .main-content{margin-left:0}
+  .hamburger{display:block}
+  .page-content{padding:1rem}
+  .topbar{padding:.7rem 1rem}
+  .att-save-bar{padding:.75rem 1rem;margin:-1rem -1rem 0}
+  .att-summary{grid-template-columns:repeat(3,1fr)}
+  .topbar-date{display:none}
+  .welcome-banner{padding:1.35rem 1.5rem}
+  .welcome-banner h2{font-size:1.2rem}
+}
+@media(max-width:600px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .att-summary{grid-template-columns:repeat(3,1fr)}
+  .admin-grid{grid-template-columns:1fr}
+  .sch-grid{grid-template-columns:1fr}
+  .qb-opts-grid{grid-template-columns:1fr}
+  .quiz-nav{justify-content:space-between}
+  .books-grid{grid-template-columns:1fr}
+  .modal-box{padding:1.25rem;border-radius:12px}
+  .att-student-row{flex-wrap:wrap}
+}
+@media(max-width:380px){
+  .stats-grid{grid-template-columns:1fr}
+  .att-summary{grid-template-columns:1fr}
+}
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <p>Connecting to Nafyad School...</p>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-page" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon">🏫</div>
+      <h1>Nafyad School</h1>
+      <p>Grade 11 & 12 Portal · 2018 E.C</p>
+    </div>
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="switchTab('student')">Student</button>
+      <button class="login-tab" onclick="switchTab('teacher')">Teacher</button>
+      <button class="login-tab" onclick="switchTab('admin')">Admin</button>
+    </div>
+    <div id="form-student">
+      <div class="form-group"><label>Student ID</label><input type="text" id="s-id" placeholder="e.g. STU102890974" autocomplete="off"/></div>
+      <div class="form-group"><label>Password (grandfather's name)</label><input type="password" id="s-pass" placeholder="Enter your password"/></div>
+      <button class="btn-login" id="btn-s" onclick="loginStudent()">Sign In →</button>
+      <p class="login-hint">ID: <strong>Student ID</strong> · Password: <strong>grandfather's name</strong></p>
+    </div>
+    <div id="form-teacher" class="hidden">
+      <div class="form-group"><label>Teacher ID</label><input type="text" id="t-id" placeholder="e.g. TID-003" autocomplete="off"/></div>
+      <div class="form-group"><label>Password</label><input type="password" id="t-pass" placeholder="Enter your password"/></div>
+      <button class="btn-login" id="btn-t" onclick="loginTeacher()">Sign In →</button>
+    </div>
+    <div id="form-admin" class="hidden">
+      <div class="form-group"><label>Admin Username</label><input type="text" id="a-user" placeholder="admin"/></div>
+      <div class="form-group"><label>Password</label><input type="password" id="a-pass" placeholder="Admin password"/></div>
+      <button class="btn-login" id="btn-a" onclick="loginAdmin()">Sign In →</button>
+    </div>
+    <div class="login-error" id="login-error">Incorrect ID or password.</div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="s-logo">
+        <div class="icon">🏫</div>
+        <div><h2>Nafyad</h2><p>School Portal</p></div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="name" id="sb-name">—</div>
+        <div class="uid" id="sb-id">—</div>
+        <div class="role-badge-wrap">
+          <div id="sb-role-badge"></div>
+          <button class="change-pass-btn hidden" id="change-pass-btn" onclick="openModal('modal-change-pass')">🔑 Password</button>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer"><button class="btn-logout" onclick="logout()">⬅ Sign Out</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger" onclick="openSidebar()">☰</button>
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-date" id="topbar-date"></div>
+        <label class="dark-toggle-wrap" title="Toggle dark mode" style="cursor:pointer">
+          <span id="dm-label">🌙</span>
+          <button class="dark-toggle" id="dark-toggle" onclick="toggleDarkMode()"></button>
+        </label>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="section-page active" id="page-dashboard">
+        <div class="welcome-banner"><h2 id="welcome-msg">Welcome! 👋</h2><p id="welcome-sub">Your academic overview.</p></div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon blue">📊</div><div><div class="stat-label">Average</div><div class="stat-value" id="d-avg">—</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-label">Attendance</div><div class="stat-value" id="d-att">—</div></div></div>
+          <div class="stat-card"><div class="stat-icon yellow">📚</div><div><div class="stat-label">Subjects</div><div class="stat-value" id="d-subj">—</div></div></div>
+          <div class="stat-card"><div class="stat-icon orange">🧠</div><div><div class="stat-label">Quizzes Done</div><div class="stat-value" id="d-quiz">—</div></div></div>
+        </div>
+        <div class="dash-grid">
+          <div class="card"><div class="card-header"><h3>Recent Marks</h3><span class="badge badge-blue">Semester 1</span></div><div class="card-body" id="d-marks-body"><p style="color:var(--muted);font-size:.87rem">Loading...</p></div></div>
+          <div class="card"><div class="card-header"><h3>Attendance Summary</h3></div><div class="card-body" id="d-att-body"><p style="color:var(--muted);font-size:.87rem">Loading...</p></div></div>
+        </div>
+      </div>
+
+      <!-- ── MARKS ── -->
+      <div class="section-page" id="page-marks">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Subject</th><th>Final</th><th>Total</th><th>Average</th><th>Grade</th><th>Status</th></tr></thead>
+            <tbody id="marks-tbody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading marks...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ATTENDANCE (student) ── -->
+      <div class="section-page" id="page-attendance">
+        <div class="att-summary">
+          <div class="att-card"><div class="att-number" id="att-present" style="color:var(--success)">—</div><div class="att-label">Present</div></div>
+          <div class="att-card"><div class="att-number" id="att-absent" style="color:var(--danger)">—</div><div class="att-label">Absent</div></div>
+          <div class="att-card"><div class="att-number" id="att-rate" style="color:var(--blue)">—</div><div class="att-label">Rate</div></div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Day</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody id="att-tbody"><tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--muted)">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── TEACHER ATTENDANCE ── -->
+      <div class="section-page" id="page-teacher-att">
+        <div class="teacher-att-bar">
+          <label>Date</label>
+          <input type="date" id="att-date"/>
+          <button class="btn-primary" onclick="loadTeacherAttendance()">Load Students</button>
+          <span id="att-date-status" style="font-size:.82rem;color:var(--muted)"></span>
+        </div>
+        <div id="att-student-list"><p style="color:var(--muted);font-size:.87rem;padding:.5rem 0">Loading students...</p></div>
+        <div class="att-save-bar hidden" id="att-save-bar">
+          <span class="att-save-count"><strong id="att-marked-count">0</strong> of <strong id="att-total-count">0</strong> marked</span>
+          <button class="btn-primary" id="att-save-btn" onclick="saveTeacherAttendance()">💾 Save Attendance</button>
+        </div>
+      </div>
+
+      <!-- ── MY SCHEDULE ── -->
+      <div class="section-page" id="page-schedule">
+        <div class="sch-header-bar">
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.2rem">My Weekly Study Schedule</div>
+            <div style="font-size:.82rem;color:var(--muted)">Plan your own study sessions — saved on this device</div>
+          </div>
+          <button class="btn-primary" onclick="clearSchedule()" style="background:rgba(255,77,109,.12);color:var(--danger);border:1px solid rgba(255,77,109,.2)">🗑 Clear All</button>
+        </div>
+        <div class="sch-grid" id="sch-grid"></div>
+      </div>
+
+      <!-- ── NOTES ── -->
+      <div class="section-page" id="page-notes">
+        <div class="notes-filter-bar">
+          <div class="notes-filters">
+            <select class="filter-select" id="notes-subj-filter" onchange="renderNotes()"><option value="all">All Subjects</option></select>
+            <select class="filter-select" id="notes-grade-filter" onchange="renderNotes()">
+              <option value="all">All Grades</option><option>Grade 11</option><option>Grade 12</option>
+            </select>
+          </div>
+          <span id="notes-count" style="font-size:.82rem;color:var(--muted)"></span>
+        </div>
+        <div class="notes-grid" id="notes-grid"><p style="color:var(--muted)">Loading...</p></div>
+      </div>
+
+      <!-- ── QUIZ ── -->
+      <div class="section-page" id="page-quiz">
+        <div id="quiz-list-view">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.65rem">
+            <select class="filter-select" id="quiz-subj-filter" onchange="renderQuizList()"><option value="all">All Subjects</option></select>
+            <span id="quiz-result-count" style="font-size:.82rem;color:var(--muted)"></span>
+          </div>
+          <div class="quiz-grid" id="quiz-grid"><p style="color:var(--muted)">Loading...</p></div>
+        </div>
+        <div id="quiz-take-view" style="display:none">
+          <div class="quiz-take-wrap">
+            <div class="quiz-header-bar">
+              <div><div style="font-weight:700;color:var(--text);font-size:.97rem" id="qt-title">Quiz</div><div class="quiz-progress-text" id="qt-progress">Question 1 of 10</div></div>
+              <div style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap">
+                <div class="quiz-dot-row" id="qt-dots"></div>
+                <div class="quiz-timer hidden" id="qt-timer">00:00</div>
+              </div>
+            </div>
+            <div class="quiz-q-num" id="qt-q-num">QUESTION 1</div>
+            <div class="quiz-q-text" id="qt-q-text"></div>
+            <div class="quiz-opts" id="qt-opts"></div>
+            <div class="quiz-nav">
+              <button class="btn-cancel" id="qt-prev" onclick="quizNav(-1)">← Prev</button>
+              <button class="btn-primary" id="qt-next" onclick="quizNav(1)">Next →</button>
+              <button class="btn-save hidden" id="qt-submit" onclick="submitQuiz()">✅ Submit</button>
+            </div>
+          </div>
+        </div>
+        <div id="quiz-result-view" style="display:none">
+          <div class="quiz-take-wrap">
+            <div class="quiz-result-banner">
+              <div class="quiz-score-ring" id="qr-ring">—</div>
+              <div style="font-size:1.25rem;font-weight:700;margin-bottom:.3rem" id="qr-title">Quiz Complete!</div>
+              <div style="color:rgba(255,255,255,.58);font-size:.9rem" id="qr-sub"></div>
+            </div>
+            <div style="display:flex;gap:.65rem;justify-content:flex-end;margin-bottom:1.1rem">
+              <button class="btn-cancel" onclick="showQuizList()">← Back to Quizzes</button>
+            </div>
+            <div class="quiz-result-list" id="qr-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEXTBOOKS ── -->
+      <div class="section-page" id="page-books"><div class="books-grid" id="books-grid"><p style="color:var(--muted)">Loading...</p></div></div>
+
+      <!-- ── PAST QUESTIONS ── -->
+      <div class="section-page" id="page-questions">
+        <div class="q-filter-bar">
+          <select class="filter-select" id="q-subj" onchange="renderQuestions()"><option value="all">All Subjects</option></select>
+          <select class="filter-select" id="q-year" onchange="renderQuestions()"><option value="all">All Years</option></select>
+        </div>
+        <div class="q-cards" id="q-cards"><p style="color:var(--muted)">Loading...</p></div>
+      </div>
+
+      <!-- ── ANNOUNCEMENTS ── -->
+      <div class="section-page" id="page-announcements"><div class="ann-list" id="ann-list"><p style="color:var(--muted)">Loading...</p></div></div>
+
+      <!-- ── ADMIN PANEL ── -->
+      <div class="section-page" id="page-admin">
+        <div class="admin-grid">
+          <!-- ADD -->
+          <div class="admin-action-card" onclick="openModal('modal-add-mark')"><div class="aa-icon">📝</div><h3>Enter Marks</h3><p>Record a student's marks</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-add-book')"><div class="aa-icon">📖</div><h3>Add Textbook</h3><p>Add book with download link</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-add-question')"><div class="aa-icon">❓</div><h3>Add Exam Questions</h3><p>Past questions by subject & year</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-add-note')"><div class="aa-icon">🗒️</div><h3>Add Study Note</h3><p>Upload a study note or resource</p></div>
+          <div class="admin-action-card" onclick="openAdminQuizModal()"><div class="aa-icon">🧠</div><h3>Create Quiz</h3><p>Build a multiple-choice quiz</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-add-ann')"><div class="aa-icon">📢</div><h3>Post Announcement</h3><p>Broadcast to all students</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-add-teacher')"><div class="aa-icon">👨‍🏫</div><h3>Add Teacher</h3><p>Create a homeroom teacher login</p></div>
+          <div class="admin-action-card" onclick="openModal('modal-reset-pass')"><div class="aa-icon">🔑</div><h3>Reset Password</h3><p>Reset any student's password</p></div>
+          <!-- REMOVE -->
+          <div class="admin-action-card danger-card" onclick="openRemoveModal('textbooks','Remove Textbook','title','subtitle')"><div class="aa-icon">🗑️</div><h3>Remove Textbook</h3><p>Delete a textbook from the list</p></div>
+          <div class="admin-action-card danger-card" onclick="openRemoveModal('exam_questions','Remove Exam Questions','subject','year')"><div class="aa-icon">🗑️</div><h3>Remove Exam Questions</h3><p>Delete a question set</p></div>
+          <div class="admin-action-card danger-card" onclick="openRemoveModal('notes','Remove Study Note','title','subject')"><div class="aa-icon">🗑️</div><h3>Remove Study Note</h3><p>Delete a study note</p></div>
+          <div class="admin-action-card danger-card" onclick="openRemoveModal('quizzes','Remove Quiz','title','subject')"><div class="aa-icon">🗑️</div><h3>Remove Quiz</h3><p>Delete a quiz</p></div>
+          <div class="admin-action-card danger-card" onclick="openRemoveModal('teachers','Remove Teacher','name','teacher_id')"><div class="aa-icon">🗑️</div><h3>Remove Teacher</h3><p>Delete a teacher account</p></div>
+          <div class="admin-action-card" onclick="showStudentList()"><div class="aa-icon">👥</div><h3>View Students</h3><p>Browse all enrolled students</p></div>
+        </div>
+
+        <div class="admin-stu-section" id="student-list-section">
+          <div class="card" style="margin-top:1.5rem">
+            <div class="card-header">
+              <h3>Students</h3>
+              <div style="display:flex;gap:.45rem;flex-wrap:wrap">
+                <select id="f-grade" onchange="filterStudents()" class="filter-select" style="font-size:.8rem;padding:.35rem .7rem"><option value="all">All Grades</option><option>Grade 11</option><option>Grade 12</option></select>
+                <select id="f-sec" onchange="filterStudents()" class="filter-select" style="font-size:.8rem;padding:.35rem .7rem"><option value="all">All Sections</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Student ID</th><th>Full Name</th><th>Grade</th><th>Section</th></tr></thead>
+                <tbody id="admin-stu-tbody"><tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--muted)">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /app -->
+
+<!-- ══ MODALS ══ -->
+<div class="modal-overlay" id="modal-add-mark">
+  <div class="modal-box"><h3>📝 Enter Marks</h3>
+    <div class="mfg"><label>Student ID</label><input type="text" id="m-mark-sid" placeholder="STU102890974"></div>
+    <div class="mfg"><label>Subject</label><input type="text" id="m-mark-sub" placeholder="e.g. Mathematics"></div>
+    <div class="mfg"><label>Semester</label><select id="m-mark-sem"><option>Semester 1</option><option>Semester 2</option></select></div>
+    <div class="mfg"><label>Final (exam component)</label><input type="number" id="m-mark-final" placeholder="e.g. 18"></div>
+    <div class="mfg"><label>Total (out of 100)</label><input type="number" id="m-mark-total" placeholder="e.g. 59"></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-mark')">Cancel</button><button class="btn-save" onclick="saveMark()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-book">
+  <div class="modal-box"><h3>📖 Add Textbook</h3>
+    <div class="mfg"><label>Title</label><input type="text" id="m-book-title" placeholder="e.g. Mathematics Grade 11"></div>
+    <div class="mfg"><label>Subject / Grade</label><input type="text" id="m-book-sub" placeholder="Math · Grade 11"></div>
+    <div class="mfg"><label>Download Link</label><input type="text" id="m-book-link" placeholder="https://..."></div>
+    <div class="mfg"><label>Emoji Icon</label><input type="text" id="m-book-icon" placeholder="📐" maxlength="4"></div>
+    <div class="mfg"><label>Color</label><select id="m-book-color"><option value="#e8f1ff">Blue</option><option value="#e6f9f4">Green</option><option value="#fff8e1">Yellow</option><option value="#f3e8ff">Purple</option><option value="#ffe8ec">Red</option></select></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-book')">Cancel</button><button class="btn-save" onclick="saveBook()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-question">
+  <div class="modal-box"><h3>❓ Add Exam Questions</h3>
+    <div class="mfg"><label>Subject</label><input type="text" id="m-q-sub" placeholder="e.g. Biology"></div>
+    <div class="mfg"><label>Exam / Year</label><input type="text" id="m-q-year" placeholder="e.g. National 2016 E.C / Nafyad Mid 2018"></div>
+    <div class="mfg"><label>Questions (one per line)</label><textarea id="m-q-list" rows="6" placeholder="1. What is photosynthesis?&#10;2. ..."></textarea></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-question')">Cancel</button><button class="btn-save" onclick="saveQuestion()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-note">
+  <div class="modal-box"><h3>🗒️ Add Study Note</h3>
+    <div class="mfg"><label>Title</label><input type="text" id="m-note-title" placeholder="e.g. Cell Biology Summary"></div>
+    <div class="mfg"><label>Subject</label><input type="text" id="m-note-subject" placeholder="e.g. Biology"></div>
+    <div class="mfg"><label>Grade</label><select id="m-note-grade"><option value="All">All Grades</option><option>Grade 11</option><option>Grade 12</option></select></div>
+    <div class="mfg"><label>Content / Notes</label><textarea id="m-note-content" rows="5" placeholder="Write the note content here..."></textarea></div>
+    <div class="mfg"><label>File / PDF Link (optional)</label><input type="text" id="m-note-link" placeholder="https://drive.google.com/..."></div>
+    <div class="mfg"><label>Icon Emoji</label><input type="text" id="m-note-icon" placeholder="📝" maxlength="4" value="📝"></div>
+    <div class="mfg"><label>Color</label><select id="m-note-color"><option value="#e8f1ff">Blue</option><option value="#e6f9f4">Green</option><option value="#fff8e1">Yellow</option><option value="#f3e8ff">Purple</option><option value="#ffe8ec">Red</option></select></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-note')">Cancel</button><button class="btn-save" onclick="saveNote()">Save Note</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-view-note">
+  <div class="modal-box wide">
+    <div class="note-modal-header">
+      <h3 id="vn-title">Note</h3>
+      <button class="btn-fs" id="btn-note-fs" onclick="toggleNoteFullscreen()">⛶ Fullscreen</button>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem" id="vn-badges"></div>
+    <div class="note-full-content" id="vn-content"></div>
+    <div id="vn-link-wrap" class="hidden" style="margin-bottom:.75rem">
+      <a id="vn-link" href="#" target="_blank" class="btn-save" style="display:inline-flex;align-items:center;gap:.45rem;text-decoration:none">⬇ Download / Open File</a>
+    </div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeNoteModal()">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-ann">
+  <div class="modal-box"><h3>📢 Post Announcement</h3>
+    <div class="mfg"><label>Title</label><input type="text" id="m-ann-title" placeholder="e.g. Exam Schedule"></div>
+    <div class="mfg"><label>Message</label><textarea id="m-ann-body" rows="4"></textarea></div>
+    <div class="mfg"><label>Priority</label><select id="m-ann-color"><option value="blue">Normal</option><option value="yellow">Important</option><option value="red">Urgent</option></select></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-ann')">Cancel</button><button class="btn-save" onclick="saveAnn()">Post</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-teacher">
+  <div class="modal-box"><h3>👨‍🏫 Add Teacher</h3>
+    <div class="mfg"><label>Teacher ID</label><input type="text" id="m-t-id" placeholder="e.g. TID-004"></div>
+    <div class="mfg"><label>Name</label><input type="text" id="m-t-name" placeholder="Teacher name"></div>
+    <div class="mfg"><label>Password</label><input type="text" id="m-t-pass" placeholder="Password"></div>
+    <div class="mfg"><label>Grade</label><select id="m-t-grade"><option>Grade 11</option><option>Grade 12</option></select></div>
+    <div class="mfg"><label>Section</label><select id="m-t-sec"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-teacher')">Cancel</button><button class="btn-save" onclick="saveTeacher()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-reset-pass">
+  <div class="modal-box"><h3>🔑 Reset Student Password</h3>
+    <div class="mfg"><label>Student ID</label><input type="text" id="m-reset-sid" placeholder="STU102890974"></div>
+    <div class="mfg"><label>New Password</label><input type="text" id="m-reset-pass" placeholder="New password"></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-reset-pass')">Cancel</button><button class="btn-save" onclick="adminResetPass()">Reset</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-change-pass">
+  <div class="modal-box"><h3>🔑 Change Password</h3>
+    <div class="mfg"><label>Current Password</label><input type="password" id="m-cp-cur" placeholder="Current password"></div>
+    <div class="mfg"><label>New Password</label><input type="password" id="m-cp-new" placeholder="New password (min 4 chars)"></div>
+    <div class="mfg"><label>Confirm</label><input type="password" id="m-cp-con" placeholder="Repeat new password"></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-change-pass')">Cancel</button><button class="btn-save" onclick="changePass()">Update</button></div>
+  </div>
+</div>
+
+<!-- Admin Create Quiz -->
+<div class="modal-overlay" id="modal-add-quiz">
+  <div class="modal-box wide"><h3>🧠 Create Quiz</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="mfg"><label>Quiz Title</label><input type="text" id="m-quiz-title" placeholder="e.g. Cell Biology Quiz"></div>
+      <div class="mfg"><label>Subject</label><input type="text" id="m-quiz-subject" placeholder="e.g. Biology"></div>
+      <div class="mfg"><label>Grade</label><select id="m-quiz-grade"><option value="All">All Grades</option><option>Grade 11</option><option>Grade 12</option></select></div>
+      <div class="mfg"><label>Time Limit (min, 0=none)</label><input type="number" id="m-quiz-time" value="0" min="0"></div>
+    </div>
+    <div style="font-size:.85rem;font-weight:700;color:var(--text);margin:.5rem 0 .65rem">Questions</div>
+    <div id="quiz-builder-list"></div>
+    <button class="btn-add-q" onclick="addQuizQuestion()">+ Add Question</button>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-add-quiz')">Cancel</button><button class="btn-save" onclick="saveQuiz()">Create Quiz</button></div>
+  </div>
+</div>
+
+<!-- Admin Remove Items (generic) -->
+<div class="modal-overlay" id="modal-remove-items">
+  <div class="modal-box"><h3 id="remove-modal-title">Remove Items</h3>
+    <div class="remove-items-wrap" id="remove-items-list"><p style="padding:1.5rem;text-align:center;color:var(--muted)">Loading...</p></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-remove-items')">Close</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://wvffzfmubstatcpsapsc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_vUWTw7fA6Y24PiKugDRdwQ_TgMYw8Lb';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_USER = 'admin', ADMIN_PASS = 'nafyad2025';
+
+let currentUser = null, currentRole = null;
+let cachedStudents = [], teacherAttData = {};
+let currentQuiz = null, currentQIdx = 0, quizAnswers = {};
+let quizTimerInterval = null, quizTimeLeft = 0;
+let allQuizzes = [], myQuizResults = {};
+let quizBuilderQs = [];
+
+const SUBJ_COLORS = ['#e8f1ff','#e6f9f4','#fff8e1','#f3e8ff','#ffe8ec'];
+const SUBJ_ICONS  = ['📐','📖','⚡','🧬','🔬','🌍','📝','🧪','📏','🖊️'];
+const SCH_COLORS  = ['#0077ff','#00c48c','#ffb800','#7c3aed','#ff4d6d','#00b8d4'];
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+/* ══════════════════════════════════════════════
+   DARK MODE
+══════════════════════════════════════════════ */
+function toggleDarkMode(){
+  const h = document.documentElement;
+  const dark = h.getAttribute('data-theme') === 'dark';
+  h.setAttribute('data-theme', dark ? 'light' : 'dark');
+  document.getElementById('dm-label').textContent = dark ? '🌙' : '☀️';
+  localStorage.setItem('nafyad-theme', dark ? 'light' : 'dark');
+}
+function applyStoredTheme(){
+  const t = localStorage.getItem('nafyad-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('dm-label').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+function init(){
+  applyStoredTheme();
+  document.getElementById('topbar-date').textContent =
+    new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('att-date').value = new Date().toISOString().split('T')[0];
+  setTimeout(()=>{
+    document.getElementById('loading-overlay').classList.add('hidden');
+    document.getElementById('login-page').style.display = 'flex';
+  }, 650);
+}
+
+/* ══════════════════════════════════════════════
+   AUTH
+══════════════════════════════════════════════ */
+function switchTab(tab){
+  document.querySelectorAll('.login-tab').forEach((t,i)=>
+    t.classList.toggle('active',(i===0&&tab==='student')||(i===1&&tab==='teacher')||(i===2&&tab==='admin')));
+  document.getElementById('form-student').classList.toggle('hidden',tab!=='student');
+  document.getElementById('form-teacher').classList.toggle('hidden',tab!=='teacher');
+  document.getElementById('form-admin').classList.toggle('hidden',tab!=='admin');
+  document.getElementById('login-error').style.display='none';
+}
+
+async function loginStudent(){
+  const sid = document.getElementById('s-id').value.trim().toUpperCase();
+  const pass= document.getElementById('s-pass').value.trim().toLowerCase();
+  if(!sid||!pass) return;
+  const btn=document.getElementById('btn-s');
+  btn.disabled=true; btn.textContent='Checking...';
+  const {data,error}=await sb.from('students').select('*').eq('student_id',sid).single();
+  btn.disabled=false; btn.textContent='Sign In →';
+  if(error||!data||data.password!==pass){showLoginError();return;}
+  currentUser=data; currentRole='student'; launchApp();
+}
+async function loginTeacher(){
+  const tid = document.getElementById('t-id').value.trim().toUpperCase();
+  const pass= document.getElementById('t-pass').value.trim().toLowerCase();
+  if(!tid||!pass) return;
+  const btn=document.getElementById('btn-t');
+  btn.disabled=true; btn.textContent='Checking...';
+  const {data,error}=await sb.from('teachers').select('*').eq('teacher_id',tid).single();
+  btn.disabled=false; btn.textContent='Sign In →';
+  if(error||!data||data.password!==pass){showLoginError();return;}
+  currentUser=data; currentRole='teacher'; launchApp();
+}
+function loginAdmin(){
+  const u=document.getElementById('a-user').value.trim();
+  const p=document.getElementById('a-pass').value;
+  if(u===ADMIN_USER&&p===ADMIN_PASS){
+    currentUser={full_name:'Administrator',student_id:'ADMIN',grade:'',section:''};
+    currentRole='admin'; launchApp();
+  } else showLoginError();
+}
+function showLoginError(){
+  const el=document.getElementById('login-error');
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+function logout(){
+  currentUser=null;currentRole=null;cachedStudents=[];teacherAttData={};
+  currentQuiz=null;quizAnswers={};allQuizzes=[];myQuizResults={};quizBuilderQs=[];
+  if(quizTimerInterval){clearInterval(quizTimerInterval);quizTimerInterval=null;}
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+}
+
+/* ══════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════ */
+const studentNav=[
+  {id:'dashboard',icon:'🏠',label:'Dashboard'},
+  {id:'marks',icon:'📊',label:'My Marks'},
+  {id:'attendance',icon:'📅',label:'Attendance'},
+  {id:'schedule',icon:'📆',label:'My Schedule'},
+  {id:'notes',icon:'🗒️',label:'Study Notes'},
+  {id:'quiz',icon:'🧠',label:'Quizzes'},
+  {id:'books',icon:'📚',label:'Textbooks'},
+  {id:'questions',icon:'❓',label:'Past Questions'},
+  {id:'announcements',icon:'📢',label:'Announcements'},
+];
+const teacherNav=[
+  {id:'dashboard',icon:'🏠',label:'Dashboard'},
+  {id:'teacher-att',icon:'📅',label:'Mark Attendance'},
+  {id:'notes',icon:'🗒️',label:'Notes'},
+  {id:'announcements',icon:'📢',label:'Announcements'},
+];
+const adminNav=[
+  {id:'dashboard',icon:'🏠',label:'Overview'},
+  {id:'admin',icon:'⚙️',label:'Admin Panel'},
+  {id:'notes',icon:'🗒️',label:'Notes'},
+  {id:'quiz',icon:'🧠',label:'Quizzes'},
+  {id:'books',icon:'📚',label:'Textbooks'},
+  {id:'questions',icon:'❓',label:'Questions'},
+  {id:'announcements',icon:'📢',label:'Announcements'},
+];
+
+const PAGE_TITLES={
+  dashboard:'Dashboard',marks:'My Marks',attendance:'Attendance',
+  'teacher-att':'Mark Attendance',schedule:'My Schedule',
+  notes:'Study Notes',quiz:'Quizzes',books:'Textbooks',
+  questions:'Past Exam Questions',announcements:'Announcements',admin:'Admin Panel'
+};
+
+function buildNav(){
+  const items={student:studentNav,teacher:teacherNav,admin:adminNav}[currentRole];
+  document.getElementById('sidebar-nav').innerHTML=
+    '<div class="nav-section-title">Menu</div>'+
+    items.map(it=>`<button class="nav-item" id="nav-${it.id}" onclick="navigateTo('${it.id}')"><span class="nav-icon">${it.icon}</span>${it.label}</button>`).join('');
+}
+
+function launchApp(){
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').style.display='block';
+  const name=currentUser.full_name||currentUser.name||'';
+  const parts=name.trim().split(' ');
+  const initials=((parts[0]||'?')[0]+((parts[1]||'')[0]||'')).toUpperCase();
+  document.getElementById('user-avatar').textContent=initials;
+  document.getElementById('sb-name').textContent=name||currentUser.teacher_id||'Admin';
+  document.getElementById('sb-id').textContent=currentUser.student_id||currentUser.teacher_id||'ADMIN';
+  const roleLabels={student:'👤 Student',teacher:'👨‍🏫 Teacher',admin:'⚙️ Admin'};
+  const roleClass={student:'role-student',teacher:'role-teacher',admin:'role-admin'};
+  document.getElementById('sb-role-badge').innerHTML=
+    `<span class="role-badge ${roleClass[currentRole]}">${roleLabels[currentRole]}</span>`;
+  if(currentRole==='student') document.getElementById('change-pass-btn').classList.remove('hidden');
+  buildNav();
+  navigateTo('dashboard');
+}
+
+function navigateTo(page){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.section-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('nav-'+page)?.classList.add('active');
+  document.getElementById('page-'+page)?.classList.add('active');
+  document.getElementById('topbar-title').textContent=PAGE_TITLES[page]||page;
+  const renderers={
+    dashboard:renderDashboard, marks:renderMarks, attendance:renderAttendance,
+    schedule:renderSchedule, notes:renderNotes, quiz:renderQuizList,
+    books:renderBooks, questions:renderQuestions, announcements:renderAnnouncements
+  };
+  if(renderers[page]) renderers[page]();
+  // Teacher: auto-load attendance when navigating to that page
+  if(page==='teacher-att') setTimeout(loadTeacherAttendance,80);
+  closeSidebar();
+}
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function getGradeBadge(t){
+  if(t===null||t===undefined) return '<span class="badge badge-blue">No mark</span>';
+  if(t>=90) return '<span class="badge badge-green">Excellent</span>';
+  if(t>=80) return '<span class="badge badge-blue">Very Good</span>';
+  if(t>=65) return '<span class="badge badge-yellow">Good</span>';
+  if(t>=50) return '<span class="badge badge-yellow">Pass</span>';
+  return '<span class="badge badge-red">Fail</span>';
+}
+function letterGrade(t){
+  if(t===null||t===undefined)return'—';
+  if(t>=90)return'A+';if(t>=85)return'A';if(t>=80)return'B+';
+  if(t>=75)return'B';if(t>=65)return'C';if(t>=50)return'D';return'F';
+}
+function showToast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast'+(type?' '+type:'');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+window.openModal = id=>document.getElementById(id).classList.add('open');
+window.closeModal= id=>document.getElementById(id).classList.remove('open');
+window.openSidebar=()=>{document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-overlay').classList.add('open')};
+window.closeSidebar=()=>{document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open')};
+document.addEventListener('click',e=>{
+  document.querySelectorAll('.modal-overlay').forEach(m=>{if(e.target===m)m.classList.remove('open')});
+});
+
+/* ══════════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════════ */
+async function renderDashboard(){
+  const uid=currentRole==='student'?currentUser.student_id:null;
+  const firstName=(currentUser.full_name||currentUser.name||'').split(' ')[0];
+  document.getElementById('welcome-msg').textContent=`Welcome back, ${firstName}! 👋`;
+
+  if(currentRole==='teacher'){
+    document.getElementById('welcome-sub').textContent=`Homeroom · ${currentUser.grade||''} Section ${currentUser.section||''}`;
+    ['d-avg','d-att','d-subj','d-quiz'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('d-marks-body').innerHTML='<p style="color:var(--muted);font-size:.86rem">Use the sidebar to mark attendance.</p>';
+    document.getElementById('d-att-body').innerHTML='<p style="color:var(--muted);font-size:.86rem">Records appear after saving.</p>';
+    return;
+  }
+  if(!uid){
+    document.getElementById('welcome-sub').textContent='Admin overview · Nafyad School';
+    ['d-avg','d-att','d-subj','d-quiz'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('d-marks-body').innerHTML='<p style="color:var(--muted)">Admin view.</p>';
+    document.getElementById('d-att-body').innerHTML='<p style="color:var(--muted)">Admin view.</p>';
+    return;
+  }
+
+  document.getElementById('welcome-sub').textContent=
+    `${currentUser.grade} · Section ${currentUser.section}`;
+
+  const [{data:marks},{data:att},{data:qResults}]=await Promise.all([
+    sb.from('marks').select('*').eq('student_id',uid),
+    sb.from('attendance').select('*').eq('student_id',uid),
+    sb.from('quiz_results').select('*').eq('student_id',uid),
+  ]);
+
+  const myMarks=marks||[];
+  const avg=myMarks.length?Math.round(myMarks.reduce((s,m)=>s+(m.total||0),0)/myMarks.length):0;
+  const totalDays=(att||[]).length;
+  const presentDays=(att||[]).filter(a=>a.status!=='Absent').length;
+  const attRate=totalDays?Math.round(presentDays/totalDays*100):0;
+
+  document.getElementById('d-avg').textContent=avg?avg+'%':'—';
+  document.getElementById('d-att').textContent=attRate?attRate+'%':'—';
+  document.getElementById('d-subj').textContent=[...new Set(myMarks.map(m=>m.subject))].length||'—';
+  document.getElementById('d-quiz').textContent=(qResults||[]).length||'0';
+
+  document.getElementById('d-marks-body').innerHTML=myMarks.length
+    ?`<div class="table-wrap"><table class="data-table" style="box-shadow:none"><thead><tr><th>Subject</th><th>Total</th><th>Grade</th></tr></thead><tbody>
+      ${myMarks.slice(0,5).map(m=>`<tr><td>${m.subject}</td><td>${m.total??'—'}</td><td>${getGradeBadge(m.total)}</td></tr>`).join('')}
+      </tbody></table></div>`
+    :'<p style="color:var(--muted);font-size:.86rem">No marks recorded yet.</p>';
+
+  const totP=(att||[]).filter(a=>a.status==='Present').length;
+  const totA=(att||[]).filter(a=>a.status==='Absent').length;
+  const totL=(att||[]).filter(a=>a.status==='Late').length;
+  document.getElementById('d-att-body').innerHTML=totalDays
+    ?`<div style="display:flex;flex-direction:column;gap:.65rem">
+        ${[['Present',totP,'var(--success)'],['Absent',totA,'var(--danger)'],['Late',totL,'var(--warning)']].map(([l,v,c])=>
+          `<div style="display:flex;justify-content:space-between;font-size:.87rem;color:var(--text)"><span>${l}</span><strong style="color:${c}">${v}</strong></div>`).join('')}
+        <div style="margin-top:.35rem">
+          <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.35rem;color:var(--text)"><span>Rate</span><span style="color:var(--blue);font-weight:700">${attRate}%</span></div>
+          <div class="grade-bar"><div class="grade-bar-fill" style="width:${attRate}%;background:${attRate>=90?'var(--success)':attRate>=75?'var(--warning)':'var(--danger)'}"></div></div>
+        </div></div>`
+    :'<p style="color:var(--muted);font-size:.86rem">No attendance records yet.</p>';
+}
+
+/* ══════════════════════════════════════════════
+   MARKS  (no stream filtering — show all subjects)
+══════════════════════════════════════════════ */
+async function renderMarks(){
+  const uid=currentUser.student_id;
+  const {data:marks}=await sb.from('marks').select('*').eq('student_id',uid).order('subject');
+  document.getElementById('marks-tbody').innerHTML=(marks||[]).length
+    ?marks.map(m=>{
+        const avg=m.total!==null&&m.total!==undefined?Math.round(m.total):null;
+        const color=avg!==null?(avg>=65?'var(--success)':avg>=50?'var(--warning)':'var(--danger)'):'var(--muted)';
+        return `<tr>
+          <td><strong>${m.subject}</strong></td>
+          <td>${m.final!==null&&m.final!==undefined?m.final:'—'}</td>
+          <td style="font-weight:700;color:${color}">${avg!==null?avg:'—'}</td>
+          <td><div class="grade-bar-wrap"><span style="font-weight:700;color:${color};min-width:36px;font-size:.82rem">${avg!==null?avg+'%':'—'}</span>
+            <div class="grade-bar"><div class="grade-bar-fill" style="width:${avg||0}%;background:${color}"></div></div></div></td>
+          <td>${letterGrade(avg)}</td>
+          <td>${getGradeBadge(avg)}</td></tr>`;}).join('')
+    :'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No marks recorded yet.</td></tr>';
+}
+
+/* ══════════════════════════════════════════════
+   ATTENDANCE (student)
+══════════════════════════════════════════════ */
+async function renderAttendance(){
+  const uid=currentUser.student_id;
+  const {data:rec}=await sb.from('attendance').select('*').eq('student_id',uid).order('date',{ascending:false});
+  const present=(rec||[]).filter(a=>a.status!=='Absent').length;
+  const absent=(rec||[]).filter(a=>a.status==='Absent').length;
+  const rate=(rec||[]).length?Math.round(present/(rec||[]).length*100):0;
+  document.getElementById('att-present').textContent=present;
+  document.getElementById('att-absent').textContent=absent;
+  document.getElementById('att-rate').textContent=rate+'%';
+  const sc={Present:'green',Absent:'red',Late:'yellow',Excused:'blue'};
+  document.getElementById('att-tbody').innerHTML=(rec||[]).length
+    ?rec.map(r=>`<tr>
+        <td style="font-family:var(--mono);font-size:.83rem">${r.date}</td>
+        <td>${r.day||''}</td>
+        <td><span class="badge badge-${sc[r.status]||'blue'}">${r.status}</span></td>
+        <td style="color:var(--muted);font-size:.83rem">${r.note||'—'}</td></tr>`).join('')
+    :'<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--muted)">No records yet.</td></tr>';
+}
+
+/* ══════════════════════════════════════════════
+   TEACHER ATTENDANCE  (auto-loads on navigate)
+══════════════════════════════════════════════ */
+async function loadTeacherAttendance(){
+  const date=document.getElementById('att-date').value;
+  if(!date){showToast('Please select a date','error');return;}
+  const {grade,section}=currentUser;
+  document.getElementById('att-date-status').textContent='Loading...';
+  const {data:students}=await sb.from('students').select('student_id,full_name').eq('grade',grade).eq('section',section).order('full_name');
+  const sids=(students||[]).map(s=>s.student_id);
+  const {data:existing}=sids.length?await sb.from('attendance').select('*').in('student_id',sids).eq('date',date):{data:[]};
+  const existMap={};
+  (existing||[]).forEach(r=>existMap[r.student_id]={status:r.status,note:r.note||''});
+  teacherAttData={};
+  (students||[]).forEach(s=>{teacherAttData[s.student_id]=existMap[s.student_id]||{status:null,note:''};});
+  const DAYS_W=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayName=DAYS_W[new Date(date).getDay()];
+  document.getElementById('att-date-status').textContent=`${dayName} · ${(students||[]).length} students`;
+  const statuses=['Present','Absent','Late','Excused'];
+  document.getElementById('att-student-list').innerHTML=
+    `<div class="att-student-grid">`+
+    (students||[]).map(s=>{
+      const cur=teacherAttData[s.student_id].status;
+      const btns=statuses.map(st=>
+        `<button class="att-btn${cur===st?' selected-'+st.toLowerCase():''}" id="btn-${s.student_id}-${st}" onclick="setAttStatus('${s.student_id}','${st}')">${st}</button>`).join('');
+      return `<div class="att-student-row" id="row-${s.student_id}">
+        <div class="stu-info"><div class="stu-name">${s.full_name}</div><div class="stu-id">${s.student_id}</div></div>
+        <div class="att-status-btns">${btns}</div>
+        <input class="att-note-input" type="text" placeholder="Note (optional)" value="${existMap[s.student_id]?.note||''}" oninput="setAttNote('${s.student_id}',this.value)"/>
+      </div>`;}).join('')+`</div>`;
+  document.getElementById('att-save-bar').classList.remove('hidden');
+  document.getElementById('att-total-count').textContent=(students||[]).length;
+  updateAttCount();
+}
+function setAttStatus(sid,status){
+  teacherAttData[sid].status=status;
+  ['Present','Absent','Late','Excused'].forEach(st=>{
+    const btn=document.getElementById(`btn-${sid}-${st}`);
+    if(btn) btn.className='att-btn'+(st===status?' selected-'+st.toLowerCase():'');
+  });
+  updateAttCount();
+}
+function setAttNote(sid,note){teacherAttData[sid].note=note;}
+function updateAttCount(){
+  document.getElementById('att-marked-count').textContent=Object.values(teacherAttData).filter(d=>d.status!==null).length;
+}
+async function saveTeacherAttendance(){
+  const date=document.getElementById('att-date').value;
+  const DAYS_W=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const day=DAYS_W[new Date(date).getDay()];
+  const btn=document.getElementById('att-save-btn');
+  btn.disabled=true; btn.textContent='Saving...';
+  const records=Object.entries(teacherAttData).filter(([,d])=>d.status!==null)
+    .map(([sid,d])=>({student_id:sid,date,day,status:d.status,note:d.note||'',teacher_id:currentUser.teacher_id}));
+  if(!records.length){showToast('No students marked yet','error');btn.disabled=false;btn.textContent='💾 Save Attendance';return;}
+  const {error}=await sb.from('attendance').upsert(records,{onConflict:'student_id,date'});
+  btn.disabled=false; btn.textContent='💾 Save Attendance';
+  if(error){showToast('Error: '+error.message,'error');return;}
+  showToast(`✅ Saved ${records.length} records!`,'success');
+}
+
+/* ══════════════════════════════════════════════
+   MY SCHEDULE  (localStorage per student)
+══════════════════════════════════════════════ */
+function schKey(){ return `nafyad_sch_${currentUser.student_id}`; }
+function loadSch(){ try{ return JSON.parse(localStorage.getItem(schKey())||'{}'); }catch(e){return{};} }
+function saveSch(d){ localStorage.setItem(schKey(), JSON.stringify(d)); }
+
+function renderSchedule(){
+  const data=loadSch();
+  document.getElementById('sch-grid').innerHTML=DAYS.map((day,di)=>{
+    const slots=(data[day]||[]);
+    const slotsHtml=slots.map((sl,si)=>`
+      <div class="sch-slot">
+        <div class="sch-slot-color" style="background:${SCH_COLORS[di%SCH_COLORS.length]}"></div>
+        <div class="sch-slot-info">
+          <div class="sch-slot-subject">${escHtml(sl.subject)}</div>
+          ${sl.time?`<div class="sch-slot-time">⏰ ${escHtml(sl.time)}</div>`:''}
+          ${sl.note?`<div class="sch-slot-note">${escHtml(sl.note)}</div>`:''}
+        </div>
+        <button class="sch-slot-del" onclick="deleteSchSlot('${day}',${si})" title="Remove">✕</button>
+      </div>`).join('');
+    return `<div class="sch-day-card">
+      <div class="sch-day-header" style="border-bottom:2px solid ${SCH_COLORS[di%SCH_COLORS.length]}22">
+        <div class="sch-day-name">${day}</div>
+        <div class="sch-day-count">${slots.length} session${slots.length!==1?'s':''}</div>
+      </div>
+      <div class="sch-day-body">
+        ${slotsHtml}
+        <div class="sch-add-form" id="sch-form-${day}">
+          <input type="text" id="sch-sub-${day}" placeholder="Subject (e.g. Biology)" autocomplete="off"/>
+          <div class="sch-add-form-row">
+            <input type="time" id="sch-time-${day}" placeholder="Time"/>
+            <input type="text" id="sch-note-${day}" placeholder="Note (optional)"/>
+          </div>
+          <div class="sch-add-actions">
+            <button class="sch-btn-small sch-btn-cancel" onclick="cancelSchForm('${day}')">Cancel</button>
+            <button class="sch-btn-small sch-btn-add" onclick="addSchSlot('${day}')">+ Add</button>
+          </div>
+        </div>
+        <button class="sch-add-btn" onclick="openSchForm('${day}')">+ Add study session</button>
+      </div>
+    </div>`;}).join('');
+}
+function openSchForm(day){
+  document.getElementById(`sch-form-${day}`).classList.add('open');
+  document.getElementById(`sch-sub-${day}`).focus();
+}
+function cancelSchForm(day){ document.getElementById(`sch-form-${day}`).classList.remove('open'); }
+function addSchSlot(day){
+  const sub=document.getElementById(`sch-sub-${day}`).value.trim();
+  if(!sub){showToast('Enter a subject','error');return;}
+  const time=document.getElementById(`sch-time-${day}`).value;
+  const note=document.getElementById(`sch-note-${day}`).value.trim();
+  const data=loadSch();
+  if(!data[day]) data[day]=[];
+  data[day].push({subject:sub,time,note});
+  saveSch(data); renderSchedule();
+}
+function deleteSchSlot(day,idx){
+  const data=loadSch();
+  if(data[day]) data[day].splice(idx,1);
+  saveSch(data); renderSchedule();
+}
+function clearSchedule(){
+  if(confirm('Clear your entire schedule?')){ localStorage.removeItem(schKey()); renderSchedule(); }
+}
+
+/* ══════════════════════════════════════════════
+   NOTES
+══════════════════════════════════════════════ */
+async function renderNotes(){
+  const {data:notes}=await sb.from('notes').select('*').order('created_at',{ascending:false});
+  const sf=document.getElementById('notes-subj-filter').value;
+  const gf=document.getElementById('notes-grade-filter').value;
+  const subjects=[...new Set((notes||[]).map(n=>n.subject).filter(Boolean))];
+  document.getElementById('notes-subj-filter').innerHTML=
+    '<option value="all">All Subjects</option>'+subjects.map(s=>`<option value="${s}"${sf===s?' selected':''}>${s}</option>`).join('');
+  const filtered=(notes||[]).filter(n=>(sf==='all'||n.subject===sf)&&(gf==='all'||!n.grade||n.grade===gf||n.grade==='All'));
+  document.getElementById('notes-count').textContent=`${filtered.length} note${filtered.length!==1?'s':''}`;
+  document.getElementById('notes-grid').innerHTML=filtered.length
+    ?filtered.map((n,i)=>`
+      <div class="note-card" onclick='viewNote(${JSON.stringify(n).replace(/'/g,"&#39;")})'>
+        <div class="note-card-top">
+          <div class="note-icon" style="background:${n.color||SUBJ_COLORS[i%SUBJ_COLORS.length]}">${n.icon||'📝'}</div>
+          <div><h3>${n.title}</h3><div class="note-meta">${n.subject||'General'} · ${n.grade||'All'}</div></div>
+        </div>
+        ${n.content?`<div class="note-content-preview">${n.content}</div>`:''}
+        <div class="note-footer">
+          <span class="badge badge-blue">${n.subject||'Note'}</span>
+          ${n.file_link?'<span class="badge badge-green">📎 File</span>':''}
+          <span class="note-date">${new Date(n.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+        </div>
+      </div>`).join('')
+    :'<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted)">No notes available yet.</div>';
+}
+function viewNote(n){
+  document.getElementById('vn-title').textContent=n.title;
+  document.getElementById('vn-badges').innerHTML=
+    `<span class="badge badge-blue">${n.subject||'Note'}</span><span class="badge badge-purple">${n.grade||'All'}</span>`;
+  document.getElementById('vn-content').textContent=n.content||'No text content. See attached file below.';
+  if(n.file_link){
+    document.getElementById('vn-link').href=n.file_link;
+    document.getElementById('vn-link-wrap').classList.remove('hidden');
+  } else {
+    document.getElementById('vn-link-wrap').classList.add('hidden');
+  }
+  document.getElementById('btn-note-fs').textContent='⛶ Fullscreen';
+  openModal('modal-view-note');
+}
+function toggleNoteFullscreen(){
+  const overlay=document.getElementById('modal-view-note');
+  overlay.classList.toggle('fullscreen-mode');
+  document.getElementById('btn-note-fs').textContent=
+    overlay.classList.contains('fullscreen-mode')?'⊡ Exit Fullscreen':'⛶ Fullscreen';
+}
+function closeNoteModal(){
+  document.getElementById('modal-view-note').classList.remove('fullscreen-mode','open');
+}
+
+/* ══════════════════════════════════════════════
+   QUIZ — LIST
+══════════════════════════════════════════════ */
+async function renderQuizList(){
+  showQuizList();
+  const uid=currentRole==='student'?currentUser.student_id:null;
+  const [{data:quizzes},{data:results}]=await Promise.all([
+    sb.from('quizzes').select('*').order('created_at',{ascending:false}),
+    uid?sb.from('quiz_results').select('*').eq('student_id',uid):{data:[]},
+  ]);
+  allQuizzes=quizzes||[];
+  myQuizResults={};
+  (results||[]).forEach(r=>myQuizResults[r.quiz_id]={score:r.score,total:r.total,answers:r.answers||{}});
+  const sf=document.getElementById('quiz-subj-filter').value;
+  const subjects=[...new Set(allQuizzes.map(q=>q.subject).filter(Boolean))];
+  document.getElementById('quiz-subj-filter').innerHTML=
+    '<option value="all">All Subjects</option>'+subjects.map(s=>`<option value="${s}"${sf===s?' selected':''}>${s}</option>`).join('');
+  const filtered=allQuizzes.filter(q=>sf==='all'||q.subject===sf);
+  document.getElementById('quiz-result-count').textContent=`${filtered.length} quiz${filtered.length!==1?'zes':''}`;
+  document.getElementById('quiz-grid').innerHTML=filtered.length
+    ?filtered.map(q=>{
+        const qs=(q.questions||[]).length;
+        const done=myQuizResults[q.id];
+        const pct=done?Math.round(done.score/done.total*100):null;
+        return `<div class="quiz-card">
+          <div class="quiz-card-top"><div class="quiz-icon">🧠</div>
+            <div><h3>${q.title}</h3><div class="quiz-sub">${q.subject||'General'} · ${q.grade||'All'}</div></div></div>
+          <div class="quiz-badge-row">
+            <span class="badge badge-blue">❓ ${qs} question${qs!==1?'s':''}</span>
+            ${q.time_limit?`<span class="badge badge-yellow">⏱ ${q.time_limit}min</span>`:''}
+            ${done?`<span class="badge badge-green">✅ ${pct}% (${done.score}/${done.total})</span>`:''}
+          </div>
+          ${currentRole==='student'
+            ? done
+              ? `<button class="btn-primary" style="width:100%;margin-top:.25rem" onclick="viewQuizResult(${q.id})">📊 View Results</button>`
+              : `<button class="btn-primary" style="width:100%;margin-top:.25rem" onclick="startQuiz(${q.id})">▶ Start Quiz</button>`
+            : `<div style="font-size:.78rem;color:var(--muted);text-align:center;padding:.35rem 0">Admin view</div>`
+          }
+        </div>`;}).join('')
+    :'<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted)">No quizzes yet.</div>';
+}
+function showQuizList(){
+  document.getElementById('quiz-list-view').style.display='block';
+  document.getElementById('quiz-take-view').style.display='none';
+  document.getElementById('quiz-result-view').style.display='none';
+  if(quizTimerInterval){clearInterval(quizTimerInterval);quizTimerInterval=null;}
+}
+function startQuiz(qid){
+  currentQuiz=allQuizzes.find(q=>q.id===qid);
+  if(!currentQuiz){showToast('Quiz not found','error');return;}
+  quizAnswers={};currentQIdx=0;
+  document.getElementById('quiz-list-view').style.display='none';
+  document.getElementById('quiz-take-view').style.display='block';
+  document.getElementById('quiz-result-view').style.display='none';
+  document.getElementById('qt-title').textContent=currentQuiz.title;
+  if(currentQuiz.time_limit>0){
+    quizTimeLeft=currentQuiz.time_limit*60;
+    document.getElementById('qt-timer').classList.remove('hidden');
+    quizTimerInterval=setInterval(()=>{
+      quizTimeLeft--;
+      const m=Math.floor(quizTimeLeft/60).toString().padStart(2,'0');
+      const s=(quizTimeLeft%60).toString().padStart(2,'0');
+      document.getElementById('qt-timer').textContent=`${m}:${s}`;
+      if(quizTimeLeft<=0){clearInterval(quizTimerInterval);submitQuiz();}
+    },1000);
+  } else document.getElementById('qt-timer').classList.add('hidden');
+  renderQuizQuestion();
+}
+function renderQuizQuestion(){
+  const qs=currentQuiz.questions||[];
+  const q=qs[currentQIdx],total=qs.length;
+  document.getElementById('qt-progress').textContent=`Question ${currentQIdx+1} of ${total}`;
+  document.getElementById('qt-q-num').textContent=`QUESTION ${currentQIdx+1}`;
+  document.getElementById('qt-q-text').textContent=q.question;
+  document.getElementById('qt-dots').innerHTML=qs.map((_,i)=>
+    `<div class="quiz-dot${quizAnswers[i]!==undefined?' answered':''}${i===currentQIdx?' current':''}"></div>`).join('');
+  const letters=['A','B','C','D'];
+  document.getElementById('qt-opts').innerHTML=(q.options||[]).map((opt,i)=>`
+    <div>
+      <input type="radio" class="quiz-opt" name="quiz-opt" id="qo-${i}" value="${i}"${quizAnswers[currentQIdx]===i?' checked':''} onchange="quizAnswers[${currentQIdx}]=${i};updateQuizDots()">
+      <label class="quiz-opt-label" for="qo-${i}">
+        <div class="quiz-opt-letter">${letters[i]}</div><span>${opt}</span>
+      </label>
+    </div>`).join('');
+  const isLast=currentQIdx===total-1;
+  document.getElementById('qt-prev').style.visibility=currentQIdx===0?'hidden':'visible';
+  document.getElementById('qt-next').classList.toggle('hidden',isLast);
+  document.getElementById('qt-submit').classList.toggle('hidden',!isLast);
+}
+function updateQuizDots(){
+  const qs=currentQuiz.questions||[];
+  document.getElementById('qt-dots').innerHTML=qs.map((_,i)=>
+    `<div class="quiz-dot${quizAnswers[i]!==undefined?' answered':''}${i===currentQIdx?' current':''}"></div>`).join('');
+}
+function quizNav(dir){
+  const total=(currentQuiz.questions||[]).length;
+  currentQIdx=Math.max(0,Math.min(total-1,currentQIdx+dir));
+  renderQuizQuestion();
+}
+async function submitQuiz(){
+  if(quizTimerInterval){clearInterval(quizTimerInterval);quizTimerInterval=null;}
+  const qs=currentQuiz.questions||[];
+  let score=0;
+  qs.forEach((q,i)=>{if(quizAnswers[i]===q.correct)score++;});
+  await sb.from('quiz_results').upsert({
+    student_id:currentUser.student_id,quiz_id:currentQuiz.id,
+    score,total:qs.length,answers:quizAnswers
+  },{onConflict:'student_id,quiz_id'});
+  myQuizResults[currentQuiz.id]={score,total:qs.length,answers:quizAnswers};
+  showQuizResultView(score,qs.length,qs);
+}
+function showQuizResultView(score,total,qs){
+  document.getElementById('quiz-list-view').style.display='none';
+  document.getElementById('quiz-take-view').style.display='none';
+  document.getElementById('quiz-result-view').style.display='block';
+  const pct=Math.round(score/total*100);
+  const ring=document.getElementById('qr-ring');
+  ring.style.borderColor=pct>=70?'var(--success)':pct>=50?'var(--warning)':'var(--danger)';
+  ring.innerHTML=`<span style="font-size:1.3rem;font-weight:800">${score}</span><span style="font-size:.7rem;opacity:.7">/${total}</span>`;
+  document.getElementById('qr-title').textContent=pct>=70?'Great work! 🎉':pct>=50?'Good effort! 💪':'Keep studying! 📚';
+  document.getElementById('qr-sub').textContent=`${pct}% correct · ${score} of ${total} correct`;
+  const letters=['A','B','C','D'];
+  document.getElementById('qr-list').innerHTML=qs.map((q,i)=>{
+    const ua=quizAnswers[i], correct=ua===q.correct;
+    return `<div class="quiz-result-item ${correct?'correct':'wrong'}">
+      <div class="q-text"><span class="q-num">Q${i+1}.</span>${q.question}</div>
+      <div class="q-answer">
+        ${!correct&&ua!==undefined?`<span style="color:var(--danger)">Your answer: ${letters[ua]}. ${q.options[ua]}</span><br>`:''}
+        <span style="color:var(--success)">✅ Correct: ${letters[q.correct]}. ${q.options[q.correct]}</span>
+      </div>
+    </div>`;}).join('');
+}
+function viewQuizResult(qid){
+  const q=allQuizzes.find(x=>x.id===qid), r=myQuizResults[qid];
+  if(!q||!r)return;
+  quizAnswers={...r.answers};
+  showQuizResultView(r.score,r.total,q.questions||[]);
+}
+
+/* ══════════════════════════════════════════════
+   BOOKS
+══════════════════════════════════════════════ */
+async function renderBooks(){
+  const {data:books}=await sb.from('textbooks').select('*').order('title');
+  document.getElementById('books-grid').innerHTML=(books||[]).length
+    ?books.map(b=>`<div class="book-card">
+        <div class="book-cover" style="background:${b.color||'#e8f1ff'}">${b.icon||'📖'}</div>
+        <div class="book-body"><h4>${b.title}</h4><div class="book-sub">${b.subtitle||''}</div>
+        ${b.link
+          ?`<a href="${b.link}" target="_blank" style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .9rem;border-radius:8px;background:var(--blue);color:#fff;font-family:var(--font);font-size:.78rem;font-weight:600;text-decoration:none">⬇ Download</a>`
+          :`<button style="opacity:.5;cursor:not-allowed;padding:.4rem .9rem;border-radius:8px;background:#f0f4fa;color:var(--blue);font-family:var(--font);font-size:.78rem;font-weight:600;border:none">⏳ Coming Soon</button>`}
+        </div></div>`).join('')
+    :'<p style="color:var(--muted)">No textbooks added yet.</p>';
+}
+
+/* ══════════════════════════════════════════════
+   PAST QUESTIONS  (no stream filtering)
+══════════════════════════════════════════════ */
+async function renderQuestions(){
+  const {data:qs}=await sb.from('exam_questions').select('*').order('subject');
+  const sf=document.getElementById('q-subj').value;
+  const yf=document.getElementById('q-year').value;
+  const subjects=[...new Set((qs||[]).map(q=>q.subject))];
+  const years=[...new Set((qs||[]).map(q=>q.year))];
+  document.getElementById('q-subj').innerHTML='<option value="all">All Subjects</option>'+subjects.map(s=>`<option value="${s}"${sf===s?' selected':''}>${s}</option>`).join('');
+  document.getElementById('q-year').innerHTML='<option value="all">All Years</option>'+years.map(y=>`<option value="${y}"${yf===y?' selected':''}>${y}</option>`).join('');
+  const filtered=(qs||[]).filter(q=>(sf==='all'||q.subject===sf)&&(yf==='all'||q.year===yf));
+  document.getElementById('q-cards').innerHTML=filtered.length
+    ?filtered.map((q,i)=>`<div class="q-card">
+        <div class="q-card-header" onclick="toggleQ(${i})">
+          <h4>${q.subject} — ${q.year}</h4>
+          <div style="display:flex;gap:.5rem;align-items:center"><span class="badge badge-blue">${q.questions.length} questions</span><span id="qa-${i}" style="color:var(--muted)">▼</span></div>
+        </div>
+        <div class="q-card-body" id="qb-${i}">
+          ${q.questions.map((qt,j)=>`<div class="q-item"><span class="q-num">Q${j+1}.</span>${qt}</div>`).join('')}
+        </div></div>`).join('')
+    :'<p style="color:var(--muted)">No questions found.</p>';
+}
+window.toggleQ=function(i){
+  const b=document.getElementById('qb-'+i),a=document.getElementById('qa-'+i);
+  b.classList.toggle('open');if(a)a.textContent=b.classList.contains('open')?'▲':'▼';
+};
+
+/* ══════════════════════════════════════════════
+   ANNOUNCEMENTS
+══════════════════════════════════════════════ */
+async function renderAnnouncements(){
+  const {data:anns}=await sb.from('announcements').select('*').order('created_at',{ascending:false});
+  document.getElementById('ann-list').innerHTML=(anns||[]).length
+    ?anns.map(a=>`<div class="ann-item">
+        <div class="ann-dot" style="background:${a.color==='red'?'var(--danger)':a.color==='yellow'?'var(--warning)':'var(--blue)'}"></div>
+        <div><div class="ann-title">${a.title}</div><div class="ann-body">${a.body}</div>
+        <div class="ann-date">${new Date(a.created_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})}</div></div></div>`).join('')
+    :'<p style="color:var(--muted)">No announcements yet.</p>';
+}
+
+/* ══════════════════════════════════════════════
+   ADMIN — REMOVE ITEMS (generic modal)
+══════════════════════════════════════════════ */
+let removeCtx={table:'',nameKey:'',subKey:''};
+async function openRemoveModal(table,title,nameKey,subKey){
+  removeCtx={table,nameKey,subKey};
+  document.getElementById('remove-modal-title').textContent='🗑️ '+title;
+  document.getElementById('remove-items-list').innerHTML='<p style="padding:1.5rem;text-align:center;color:var(--muted)">Loading...</p>';
+  openModal('modal-remove-items');
+  const {data}=await sb.from(table).select('*').order(nameKey);
+  if(!(data&&data.length)){
+    document.getElementById('remove-items-list').innerHTML='<p style="padding:1.5rem;text-align:center;color:var(--muted)">Nothing to remove.</p>';
+    return;
+  }
+  document.getElementById('remove-items-list').innerHTML=
+    data.map(item=>`
+      <div class="remove-item-row" id="row-remove-${item.id}">
+        <div class="remove-item-info">
+          <div class="remove-item-name">${item[nameKey]||'—'}</div>
+          ${item[subKey]?`<div class="remove-item-sub">${item[subKey]}</div>`:''}
+        </div>
+        <button class="btn-danger" onclick="deleteRemoveItem(${item.id},'${table}','row-remove-${item.id}')">Delete</button>
+      </div>`).join('');
+}
+async function deleteRemoveItem(id,table,rowId){
+  if(!confirm('Delete this item? This cannot be undone.'))return;
+  const {error}=await sb.from(table).delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,'error');return;}
+  const row=document.getElementById(rowId);
+  if(row)row.remove();
+  showToast('Deleted successfully','success');
+  // refresh page if we're viewing it
+  const pageMap={notes:renderNotes,quizzes:renderQuizList,textbooks:renderBooks,exam_questions:renderQuestions};
+  if(pageMap[table]) pageMap[table]();
+}
+
+/* ══════════════════════════════════════════════
+   ADMIN — SAVE FUNCTIONS
+══════════════════════════════════════════════ */
+async function saveMark(){
+  const sid=document.getElementById('m-mark-sid').value.trim().toUpperCase();
+  const sub=document.getElementById('m-mark-sub').value.trim();
+  const sem=document.getElementById('m-mark-sem').value;
+  const final=parseFloat(document.getElementById('m-mark-final').value);
+  const total=parseFloat(document.getElementById('m-mark-total').value);
+  if(!sid||!sub||isNaN(total)){showToast('Fill all required fields','error');return;}
+  const {error}=await sb.from('marks').upsert({student_id:sid,subject:sub,semester:sem,final:isNaN(final)?null:final,total},{onConflict:'student_id,subject,semester'});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-mark');showToast('Mark saved!','success');
+}
+async function saveBook(){
+  const title=document.getElementById('m-book-title').value.trim();
+  const subtitle=document.getElementById('m-book-sub').value.trim();
+  const link=document.getElementById('m-book-link').value.trim();
+  const icon=document.getElementById('m-book-icon').value.trim()||'📖';
+  const color=document.getElementById('m-book-color').value;
+  if(!title){showToast('Enter a title','error');return;}
+  const {error}=await sb.from('textbooks').insert({title,subtitle,link,icon,color});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-book');showToast('Textbook added!','success');renderBooks();
+}
+async function saveQuestion(){
+  const sub=document.getElementById('m-q-sub').value.trim();
+  const year=document.getElementById('m-q-year').value.trim();
+  const raw=document.getElementById('m-q-list').value.trim();
+  if(!sub||!year||!raw){showToast('Fill all fields','error');return;}
+  const questions=raw.split('\n').map(q=>q.replace(/^\d+\.\s*/,'')).filter(q=>q);
+  const {error}=await sb.from('exam_questions').insert({subject:sub,year,questions});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-question');showToast('Questions saved!','success');renderQuestions();
+}
+async function saveNote(){
+  const title=document.getElementById('m-note-title').value.trim();
+  const subject=document.getElementById('m-note-subject').value.trim();
+  const grade=document.getElementById('m-note-grade').value;
+  const content=document.getElementById('m-note-content').value.trim();
+  const file_link=document.getElementById('m-note-link').value.trim();
+  const icon=document.getElementById('m-note-icon').value.trim()||'📝';
+  const color=document.getElementById('m-note-color').value;
+  if(!title){showToast('Enter a title','error');return;}
+  const {error}=await sb.from('notes').insert({title,subject,grade,content,file_link,icon,color});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  ['m-note-title','m-note-subject','m-note-content','m-note-link'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-note-icon').value='📝';
+  closeModal('modal-add-note');showToast('Note saved!','success');
+}
+async function saveAnn(){
+  const title=document.getElementById('m-ann-title').value.trim();
+  const body=document.getElementById('m-ann-body').value.trim();
+  const color=document.getElementById('m-ann-color').value;
+  if(!title||!body){showToast('Fill all fields','error');return;}
+  const {error}=await sb.from('announcements').insert({title,body,color});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-ann');showToast('Posted!','success');renderAnnouncements();
+}
+async function saveTeacher(){
+  const tid=document.getElementById('m-t-id').value.trim().toUpperCase();
+  const name=document.getElementById('m-t-name').value.trim();
+  const pass=document.getElementById('m-t-pass').value.trim().toLowerCase();
+  const grade=document.getElementById('m-t-grade').value;
+  const section=document.getElementById('m-t-sec').value;
+  if(!tid||!pass){showToast('Fill required fields','error');return;}
+  const {error}=await sb.from('teachers').upsert({teacher_id:tid,name,password:pass,grade,section},{onConflict:'teacher_id'});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-teacher');showToast('Teacher saved!','success');
+}
+async function adminResetPass(){
+  const sid=document.getElementById('m-reset-sid').value.trim().toUpperCase();
+  const pass=document.getElementById('m-reset-pass').value.trim().toLowerCase();
+  if(!sid||!pass){showToast('Fill all fields','error');return;}
+  const {error}=await sb.from('students').update({password:pass}).eq('student_id',sid);
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-reset-pass');showToast('Password reset!','success');
+}
+async function changePass(){
+  const cur=document.getElementById('m-cp-cur').value.trim().toLowerCase();
+  const nw=document.getElementById('m-cp-new').value.trim().toLowerCase();
+  const con=document.getElementById('m-cp-con').value.trim().toLowerCase();
+  if(!cur||!nw||!con){showToast('Fill all fields','error');return;}
+  if(nw!==con){showToast('Passwords do not match','error');return;}
+  if(nw.length<4){showToast('Minimum 4 characters','error');return;}
+  if(cur!==currentUser.password){showToast('Current password incorrect','error');return;}
+  const {error}=await sb.from('students').update({password:nw}).eq('student_id',currentUser.student_id);
+  if(error){showToast('Error: '+error.message,'error');return;}
+  currentUser.password=nw;
+  closeModal('modal-change-pass');showToast('Password updated! ✅','success');
+}
+
+/* ══════════════════════════════════════════════
+   QUIZ BUILDER
+══════════════════════════════════════════════ */
+function openAdminQuizModal(){
+  quizBuilderQs=[];
+  ['m-quiz-title','m-quiz-subject'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-quiz-time').value='0';
+  addQuizQuestion();
+  openModal('modal-add-quiz');
+}
+function addQuizQuestion(){
+  quizBuilderQs.push({question:'',options:['','','',''],correct:0});
+  renderQuizBuilder();
+}
+function removeQuizQuestion(idx){
+  if(quizBuilderQs.length<=1){showToast('Need at least 1 question','error');return;}
+  quizBuilderQs.splice(idx,1); renderQuizBuilder();
+}
+function renderQuizBuilder(){
+  const letters=['A','B','C','D'];
+  document.getElementById('quiz-builder-list').innerHTML=quizBuilderQs.map((q,i)=>`
+    <div class="quiz-builder-q">
+      <div class="qb-header"><div class="qb-num">Question ${i+1}</div><button class="qb-del" onclick="removeQuizQuestion(${i})">✕ Remove</button></div>
+      <div style="margin-bottom:.55rem">
+        <input type="text" class="qb-opt-input" style="width:100%;padding:.45rem .7rem" placeholder="Question text..." value="${escHtml(q.question)}" oninput="quizBuilderQs[${i}].question=this.value">
+      </div>
+      <div class="qb-opts-grid">
+        ${[0,1,2,3].map(j=>`<div class="qb-opt-row"><span class="qb-opt-letter">${letters[j]}</span>
+          <input type="text" class="qb-opt-input" placeholder="Option ${letters[j]}" value="${escHtml(q.options[j]||'')}" oninput="quizBuilderQs[${i}].options[${j}]=this.value"></div>`).join('')}
+      </div>
+      <span class="qb-correct-label">Correct answer:</span>
+      <select style="margin-top:.3rem;padding:.32rem .65rem;border-radius:6px;border:1px solid var(--border);font-family:var(--font);font-size:.82rem;background:var(--surface);color:var(--text);outline:none" onchange="quizBuilderQs[${i}].correct=parseInt(this.value)">
+        ${[0,1,2,3].map(j=>`<option value="${j}"${q.correct===j?' selected':''}>${letters[j]}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+async function saveQuiz(){
+  const title=document.getElementById('m-quiz-title').value.trim();
+  const subject=document.getElementById('m-quiz-subject').value.trim();
+  const grade=document.getElementById('m-quiz-grade').value;
+  const time_limit=parseInt(document.getElementById('m-quiz-time').value)||0;
+  if(!title){showToast('Enter a quiz title','error');return;}
+  const invalid=quizBuilderQs.findIndex(q=>!q.question||q.options.some(o=>!o));
+  if(invalid>=0){showToast(`Question ${invalid+1} is incomplete`,'error');return;}
+  const {error}=await sb.from('quizzes').insert({title,subject,grade,time_limit,questions:quizBuilderQs});
+  if(error){showToast('Error: '+error.message,'error');return;}
+  closeModal('modal-add-quiz');showToast('Quiz created! 🎉','success');
+  quizBuilderQs=[];
+}
+
+/* ══════════════════════════════════════════════
+   ADMIN — STUDENT LIST
+══════════════════════════════════════════════ */
+async function showStudentList(){
+  const sec=document.getElementById('student-list-section');
+  sec.style.display='block';
+  if(!cachedStudents.length){
+    const {data}=await sb.from('students').select('student_id,full_name,grade,section').order('grade').order('section').order('full_name');
+    cachedStudents=data||[];
+  }
+  filterStudents();
+  sec.scrollIntoView({behavior:'smooth'});
+}
+function filterStudents(){
+  const grade=document.getElementById('f-grade').value;
+  const sec=document.getElementById('f-sec').value;
+  const filtered=cachedStudents.filter(s=>(grade==='all'||s.grade===grade)&&(sec==='all'||s.section===sec));
+  document.getElementById('admin-stu-tbody').innerHTML=filtered.length
+    ?filtered.map(s=>`<tr><td style="font-family:var(--mono);font-size:.8rem">${s.student_id}</td><td>${s.full_name}</td><td>${s.grade}</td><td>${s.section}</td></tr>`).join('')
+    :'<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--muted)">No students found.</td></tr>';
+}
+
+init();
+</script>
+</body>
+</html>
